@@ -1,12 +1,13 @@
-const CACHE = 'dickontop-v8';
+const CACHE = 'dickontop-v9';
 const ASSETS = [
   './',
   './index.html',
   './manifest.webmanifest',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
-  './icons/apple-touch-icon.png',
-  './icons/favicon-64.png',
+  './favicon.ico',
+  './icons/icon-192-v9.png',
+  './icons/icon-512-v9.png',
+  './icons/apple-touch-icon-v9.png',
+  './icons/favicon-64-v9.png',
   './vendor/leaflet/leaflet.js',
   './vendor/leaflet/leaflet.css',
   './vendor/leaflet/images/marker-icon.png',
