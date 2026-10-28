@@ -5,7 +5,7 @@
 比 `python -m http.server` 多做几件事：
 - 自动跳过被占用的端口（8080、8081 ...）；
 - 补齐 .webmanifest / .js 的 MIME 类型；
-- 把 /favicon.ico、/apple-touch-icon.png 指向 icons 目录，避免 404；
+- 根目录直接提供多尺寸 /favicon.ico，并把 /apple-touch-icon.png 指向 icons 目录，避免 404；
 - 浏览器或手机中断连接时不再打印大段 traceback；
 - 本地调试统一 no-store，避免改了页面还被缓存。
 """
@@ -24,9 +24,8 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 os.chdir(ROOT)
 
 ALIASES = {
-    "/favicon.ico": "/icons/favicon-64.png",
-    "/apple-touch-icon.png": "/icons/apple-touch-icon.png",
-    "/apple-touch-icon-precomposed.png": "/icons/apple-touch-icon.png",
+    "/apple-touch-icon.png": "/icons/apple-touch-icon-v9.png",
+    "/apple-touch-icon-precomposed.png": "/icons/apple-touch-icon-v9.png",
 }
 
 TYPES = {
