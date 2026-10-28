@@ -1,0 +1,2473 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#071019">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="DickOnTop">
+<meta name="format-detection" content="telephone=no">
+<title>DickOnTop · 运动助手网页版</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/favicon-64.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<style>
+  :root {
+    --bg: #050b0e;
+    --card: rgba(255, 255, 255, 0.045);
+    --line: rgba(57, 255, 136, 0.14);
+    --neon: #39ff88;
+    --cyan: #00d4ff;
+    --text: #eafff3;
+    --muted: rgba(214, 240, 224, 0.62);
+    --danger: #ff5c7a;
+    --warn: #ffc857;
+    --radius: 18px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background:
+      radial-gradient(900px 500px at 50% -10%, rgba(57, 255, 136, 0.13), transparent 60%),
+      radial-gradient(700px 400px at 100% 100%, rgba(0, 212, 255, 0.08), transparent 60%),
+      var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+    min-height: 100vh;
+  }
+  .app { max-width: 560px; margin: 0 auto; padding: calc(14px + env(safe-area-inset-top)) 14px calc(38px + env(safe-area-inset-bottom)); }
+  .hidden { display: none !important; }
+
+  header.top {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 6px 2px 14px;
+  }
+  .brand { display: flex; align-items: center; gap: 9px; }
+  .brand img { width: 34px; height: 34px; border-radius: 10px; box-shadow: 0 0 18px rgba(57,255,136,0.28); }
+  .brand b { font-size: 18px; letter-spacing: 0.4px; }
+  .brand span { display: block; font-size: 10px; color: var(--muted); letter-spacing: 0.6px; margin-top: -2px; }
+  .user-chip {
+    font-size: 12px; color: var(--muted); text-align: right; max-width: 47%;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .user-chip b { color: var(--text); font-weight: 600; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 13px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; font-weight: 700; font-size: 15px; }
+  .card-head .tag { font-size: 11px; font-weight: 500; color: var(--neon); border: 1px solid rgba(57,255,136,0.3); background: rgba(57,255,136,0.08); padding: 3px 8px; border-radius: 999px; }
+
+  .hero { position: relative; overflow: hidden; border-color: rgba(57,255,136,0.26); }
+  .hero::after {
+    content: ""; position: absolute; inset: -40% -20% auto auto; width: 240px; height: 240px;
+    background: radial-gradient(circle, rgba(57,255,136,0.18), transparent 65%); pointer-events: none;
+  }
+  .watermark {
+    position: absolute; top: 12px; right: 12px; transform: rotate(7deg);
+    font-size: 22px; font-weight: 900; letter-spacing: 0.6px; color: rgba(57,255,136,0.17);
+    pointer-events: none; user-select: none; white-space: nowrap;
+  }
+  .hero-label { font-size: 12px; color: var(--muted); letter-spacing: 0.4px; }
+  .hero-big { font-size: 42px; font-weight: 800; line-height: 1.1; margin: 2px 0 4px; letter-spacing: -0.5px; }
+  .hero-big small { font-size: 16px; font-weight: 600; color: var(--muted); margin-left: 5px; }
+  .bar { height: 8px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; margin: 12px 0 8px; }
+  .bar i { display: block; height: 100%; width: 0%; border-radius: inherit; background: linear-gradient(90deg, var(--neon), var(--cyan)); box-shadow: 0 0 12px rgba(57,255,136,0.5); transition: width 0.35s ease; }
+  .hero-stats { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--muted); }
+  .hero-stats b { color: var(--text); font-weight: 600; }
+
+  label.field { display: block; margin-bottom: 12px; }
+  label.field > span { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; letter-spacing: 0.2px; }
+  input, select {
+    width: 100%; border: 1px solid rgba(255,255,255,0.12); background: #08151b; color: var(--text);
+    border-radius: 12px; padding: 12px 13px; font-size: 16px; font-family: inherit; outline: none;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease;
+  }
+  input:focus, select:focus { border-color: rgba(57,255,136,0.6); box-shadow: 0 0 0 3px rgba(57,255,136,0.12); }
+  input::placeholder { color: rgba(214,240,224,0.3); }
+  select { appearance: none; -webkit-appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; padding-right: 34px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .quick { display: flex; flex-wrap: wrap; gap: 7px; margin: -2px 0 14px; }
+  .quick button {
+    border: 1px solid rgba(57,255,136,0.22); background: rgba(57,255,136,0.06); color: var(--neon);
+    border-radius: 999px; padding: 6px 11px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
+  }
+  .quick button:active { background: rgba(57,255,136,0.16); }
+
+  .hint { font-size: 12px; color: var(--muted); line-height: 1.65; }
+  .hint .line { margin-top: 4px; }
+  .hint .warn { color: var(--warn); }
+  .hint .err { color: var(--danger); }
+  .hint .ok { color: var(--neon); }
+
+  button.primary {
+    width: 100%; border: 0; border-radius: 13px; padding: 14px 16px;
+    background: linear-gradient(120deg, var(--neon), #00e0a0 55%, var(--cyan));
+    color: #04130c; font-size: 16px; font-weight: 800; letter-spacing: 0.3px;
+    font-family: inherit; cursor: pointer; box-shadow: 0 8px 26px rgba(57,255,136,0.18);
+    transition: transform 0.12s ease, opacity 0.12s ease;
+  }
+  button.primary:active { transform: scale(0.985); }
+  button.primary:disabled { opacity: 0.55; cursor: wait; }
+  button.ghost, button.small {
+    border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.04); color: var(--text);
+    border-radius: 11px; padding: 9px 12px; font-size: 13px; font-family: inherit; cursor: pointer;
+  }
+  button.small { padding: 7px 10px; font-size: 12px; }
+  button.ghost:active, button.small:active { background: rgba(255,255,255,0.1); }
+  button.link { border: 0; background: none; color: var(--muted); font-size: 12px; font-family: inherit; text-decoration: underline; cursor: pointer; padding: 4px; }
+  button.link.danger { color: var(--danger); }
+
+  .track-box { border: 1px solid rgba(255,255,255,0.09); border-radius: 14px; overflow: hidden; margin: 2px 0 12px; background: #08131a; }
+  #mapCanvas { display: block; width: 100%; height: 150px; }
+  .track-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px; border-top: 1px solid rgba(255,255,255,0.07); }
+  .check { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); margin-left: auto; }
+  .check input { width: 16px; height: 16px; accent-color: var(--neon); padding: 0; }
+  .track-note { padding: 0 10px 10px; font-size: 11px; color: var(--muted); line-height: 1.5; }
+
+  .rec { display: grid; grid-template-columns: 74px 1fr auto; gap: 8px; align-items: baseline; padding: 9px 0; border-top: 1px solid rgba(255,255,255,0.06); font-size: 12px; }
+  .rec:first-child { border-top: 0; }
+  .rec b { font-size: 16px; color: var(--text); }
+  .rec .muted { color: var(--muted); }
+  .rec.today b { color: var(--neon); }
+  .empty { color: var(--muted); font-size: 13px; padding: 8px 0; }
+
+  .banner { border: 1px solid rgba(255,200,87,0.35); background: rgba(255,200,87,0.08); color: #ffe1a3; font-size: 12px; padding: 10px 12px; border-radius: 12px; margin-bottom: 12px; }
+
+  .daylock {
+    display: flex; flex-direction: column; gap: 3px;
+    border: 1px solid rgba(255,92,122,0.55);
+    background: linear-gradient(135deg, rgba(255,92,122,0.20), rgba(255,146,70,0.10));
+    color: #ffd9e1; padding: 12px 14px; border-radius: 14px; margin-bottom: 13px;
+    font-size: 12px; line-height: 1.55;
+  }
+  .daylock b { color: #ff8fa5; font-size: 14px; }
+  .daylock span { color: rgba(255,225,232,0.82); }
+  button.primary.locked {
+    background: linear-gradient(120deg, #4b5155, #3a4044);
+    color: rgba(255,255,255,0.78); box-shadow: none; cursor: not-allowed; opacity: 0.92;
+  }
+
+  .login-wrap { padding-top: 16px; }
+  .login-logo { text-align: center; margin: 10px 0 6px; }
+  .login-logo img { width: 92px; height: 92px; border-radius: 24px; box-shadow: 0 0 44px rgba(57,255,136,0.3); }
+  .login-title { text-align: center; font-size: 28px; font-weight: 900; letter-spacing: 0.5px; margin: 12px 0 2px; }
+  .login-sub { text-align: center; color: var(--muted); font-size: 12px; margin-bottom: 22px; letter-spacing: 0.4px; }
+  .msg { font-size: 12px; line-height: 1.6; margin-top: 10px; min-height: 18px; color: var(--muted); }
+  .msg.error { color: var(--danger); }
+  .msg.ok { color: var(--neon); }
+  .tiny { font-size: 11px; color: rgba(214,240,224,0.42); line-height: 1.6; }
+
+  details.help summary { cursor: pointer; font-weight: 700; font-size: 14px; outline: none; }
+  details.help ol { margin: 10px 0 0 18px; padding: 0; color: var(--muted); font-size: 12px; line-height: 1.8; }
+  details.help li { margin-bottom: 2px; }
+
+  footer { text-align: center; color: rgba(214,240,224,0.35); font-size: 11px; margin-top: 10px; }
+  footer .line { margin-bottom: 8px; }
+
+  #toast {
+    position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); transform: translate(-50%, 20px);
+    background: rgba(7, 24, 16, 0.96); border: 1px solid rgba(57,255,136,0.4); color: var(--text);
+    padding: 10px 16px; border-radius: 999px; font-size: 13px; opacity: 0; pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease; z-index: 130; max-width: 86vw; text-align: center;
+    box-shadow: 0 10px 34px rgba(0,0,0,0.5);
+  }
+  #toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(2, 8, 6, 0.72); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center; padding: 22px; z-index: 100;
+  }
+  .modal-card {
+    width: 100%; max-width: 430px; background: #0a1a14; border: 1px solid rgba(57,255,136,0.28);
+    border-radius: 20px; padding: 20px; box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+    max-height: 82vh; overflow: auto;
+  }
+  .modal-card h3 { margin: 0 0 12px; font-size: 18px; line-height: 1.4; }
+  .modal-body p { margin: 0 0 8px; font-size: 13px; color: var(--muted); line-height: 1.65; }
+  .modal-actions { display: flex; gap: 10px; margin-top: 18px; }
+  .modal-actions button { flex: 1; }
+
+  input[readonly] { color: var(--neon); border-color: rgba(57,255,136,0.35); background: rgba(57,255,136,0.06); }
+
+  .run-card { border-color: rgba(0,212,255,0.26); }
+  .run-card .run-tip { font-size: 12px; color: var(--muted); line-height: 1.65; margin-bottom: 12px; }
+  .run-card .run-actions { display: flex; gap: 8px; align-items: center; }
+  .run-card .run-actions .primary { flex: 1; }
+  .plan-line { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 10px; font-size: 12px; color: var(--muted); }
+  .plan-line b { color: var(--neon); font-weight: 700; }
+
+  .route-view {
+    position: fixed; inset: 0; z-index: 110; display: flex; flex-direction: column;
+    background: #050b0e; padding-top: env(safe-area-inset-top);
+  }
+  .route-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .route-head b { font-size: 16px; }
+  .route-head span { font-size: 11px; color: var(--muted); margin-left: 8px; }
+  #routeMap { flex: 1; min-height: 0; background: #0a1a14; z-index: 0; }
+  .route-panel {
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+    border-top: 1px solid rgba(255,255,255,0.08); background: #08131a;
+  }
+  .route-stats { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .route-stats b { color: var(--text); font-size: 15px; }
+  .route-stats .ok b { color: var(--neon); }
+  .route-stats .bad b { color: var(--danger); }
+  #routeHint { font-size: 11px; color: var(--muted); line-height: 1.55; min-height: 30px; }
+  #routeHint .warn { color: var(--warn); }
+  #routeHint .err { color: var(--danger); }
+  #routeHint .ok { color: var(--neon); }
+  .route-actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; margin-top: 8px; }
+  .route-actions button { font-size: 12px; padding: 10px 6px; }
+  .route-actions .primary { width: 100%; }
+
+  .leaflet-container { font-family: inherit; font-size: 12px; background: #0a1a14; }
+  .leaflet-control-attribution { background: rgba(5,11,14,0.75) !important; color: rgba(214,240,224,0.62) !important; }
+  .leaflet-control-attribution a { color: rgba(214,240,224,0.8) !important; }
+  .cp-icon { background: transparent; border: 0; }
+  .cp-icon b {
+    display: flex; align-items: center; justify-content: center;
+    width: 24px; height: 24px; border-radius: 50%;
+    background: #ff5c7a; color: #fff; font-size: 12px; font-weight: 800;
+    border: 2px solid rgba(255,255,255,0.9); box-shadow: 0 2px 8px rgba(0,0,0,0.55);
+  }
+  .cp-icon.ok b { background: #1fbf65; }
+  .cp-icon.idle b { background: #6b7a72; }
+  .leaflet-interactive { cursor: crosshair; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="top">
+    <div class="brand">
+      <img src="icons/icon-192.png" alt="DickOnTop">
+      <div><b>DickOnTop</b><span>Who is Dickman? Dick On Top</span></div>
+    </div>
+    <div class="user-chip" id="userChip"></div>
+  </header>
+
+  <div id="banner" class="banner hidden"></div>
+
+  <!-- 登录 -->
+  <section id="loginView" class="login-wrap">
+    <div class="login-logo"><img src="icons/icon-192.png" alt="DickOnTop"></div>
+    <div class="login-title">DickOnTop</div>
+    <div class="login-sub">Who is Dickman? Dick On Top</div>
+
+    <div class="card">
+      <label class="field"><span>学号</span>
+        <input id="account" type="text" inputmode="text" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="请输入学号">
+      </label>
+      <label class="field"><span>密码</span>
+        <input id="password" type="password" autocomplete="current-password" placeholder="请输入密码">
+      </label>
+      <button id="btnLogin" class="primary" type="button">登录</button>
+      <div id="loginMsg" class="msg"></div>
+      <div style="text-align:center;margin-top:8px;">
+        <button id="btnTest" class="link" type="button">测试服务器连接</button>
+      </div>
+      <p class="tiny" style="margin-top:14px;">账号信息只保存在本机浏览器，不会发送到学校以外的服务器。请遵守学校体育规定，使用风险自负。</p>
+    </div>
+
+    <div class="card">
+      <details class="help" open>
+        <summary>使用前必读</summary>
+        <ol>
+          <li>使用学号和统一身份认证密码登录；</li>
+          <li>登录后自动读取本学期规则、今日已上传里程和剩余额度；</li>
+          <li>填写公里数、用时或配速，三者自动换算；</li>
+          <li>默认生成与填写里程等长的模拟轨迹，也可记录真实 GPS 轨迹；</li>
+          <li>每天只能上传 1 次（服务器硬性限制），成功一次后按钮锁定到明天；单次上限 6 公里；</li>
+          <li>上传时段 05:30–22:30，请在时段内操作；</li>
+          <li>网页版没有更新检测，可添加到 iPhone 主屏幕使用。</li>
+        </ol>
+      </details>
+    </div>
+  </section>
+
+  <!-- 主界面 -->
+  <section id="appView" class="hidden">
+
+    <div class="card hero">
+      <div class="watermark">DickOnTop</div>
+      <div class="hero-label" id="remainLabel">今日剩余额度</div>
+      <div class="hero-big" id="remainBig">--<small>km</small></div>
+      <div class="bar"><i id="barFill"></i></div>
+      <div class="hero-stats">
+        <span>今日已上传 <b id="todayKm">0.00</b> km</span>
+        <span>本学期 <b id="termKm">--</b> km</span>
+        <span>已完成 <b id="runCnt">--</b> 次</span>
+      </div>
+    </div>
+
+    <div id="dayLock" class="daylock hidden">
+      <b>今日已上传 1 次，今天不能再传</b>
+      <span>服务器每天只能上传 1 次，上传按钮已锁定，明天自动恢复。</span>
+    </div>
+
+    <div class="card run-card">
+      <div class="card-head">
+        <span>开始跑步 · 路线规划</span>
+        <span class="tag">随机打卡点</span>
+      </div>
+      <div class="run-tip">
+        先向服务器获取本次随机打卡点，在山东理工大学地图上点选绘制路线。
+        路线必须经过所有打卡点，完成后的公里数按绘制长度自动填入。
+      </div>
+      <div class="run-actions">
+        <button id="btnStartRun" class="primary" type="button">开始跑步 · 获取打卡点</button>
+      </div>
+      <div id="planStatus" class="plan-line hidden"></div>
+      <button id="btnClearPlan" class="link hidden" type="button" style="margin-top:4px;">清除手绘路线，恢复模拟轨迹</button>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <span>自定义上传</span>
+        <span class="tag" id="cfgTag">男生标准</span>
+      </div>
+
+      <label class="field"><span>公里数</span>
+        <input id="km" type="number" inputmode="decimal" step="0.01" min="0" max="20" placeholder="例如 6.00">
+      </label>
+      <div class="quick">
+        <button type="button" data-km="3">3 km</button>
+        <button type="button" data-km="4">4 km</button>
+        <button type="button" data-km="5">5 km</button>
+        <button type="button" data-km="6">6 km</button>
+        <button type="button" data-km="fill">填满额度</button>
+      </div>
+
+      <div class="row2">
+        <label class="field"><span>用时</span>
+          <input id="time" type="text" inputmode="text" placeholder="MM:SS 或 HH:MM:SS">
+        </label>
+        <label class="field"><span>配速 /公里</span>
+          <input id="pace" type="text" inputmode="text" placeholder="例如 5:30">
+        </label>
+      </div>
+
+      <label class="field"><span>结束时间（服务器时段内）</span>
+        <input id="endTime" type="datetime-local">
+      </label>
+
+      <label class="field"><span>校区</span>
+        <select id="campus">
+          <option value="1">西校区</option>
+          <option value="2">东校区</option>
+        </select>
+      </label>
+
+      <div class="track-box">
+        <canvas id="mapCanvas"></canvas>
+        <div class="track-bar">
+          <button id="btnGeo" class="small" type="button">使用当前定位</button>
+          <button id="btnRecord" class="small" type="button">记录真实轨迹</button>
+          <label class="check"><input id="useRecorded" type="checkbox" disabled> 使用真实轨迹</label>
+        </div>
+        <div class="track-note">
+          <div id="recordLive"></div>
+          <div id="trackStatus">将使用模拟轨迹</div>
+        </div>
+      </div>
+      <div style="text-align:center;margin:-4px 0 12px;">
+        <button id="btnFillRecorded" class="link" type="button" disabled>用刚记录的数据填入公里/用时</button>
+      </div>
+
+      <div id="hint" class="hint"></div>
+
+      <button id="btnUpload" class="primary" type="button" style="margin-top:14px;">上传本次</button>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <span>最近记录</span>
+        <span class="tag" id="todayBadge" style="display:none;">今日已上传</span>
+      </div>
+      <div id="recordsList"><div class="empty">还没有跑步记录</div></div>
+    </div>
+
+    <div class="card">
+      <details class="help">
+        <summary>使用方法 / 常见问题</summary>
+        <ol>
+          <li>点“开始跑步 · 获取打卡点”，在校园地图上点选绘制路线，路线必须经过所有随机打卡点；</li>
+          <li>完成后公里数按绘制路线长度自动填入并锁定，想改公里数需先清除手绘路线；</li>
+          <li>公里数、用时、配速任意改一个，另外两个会自动换算；</li>
+          <li>“模拟轨迹”会根据填写的里程生成一条长度一致的环形路线，默认以所选校区为中心；</li>
+          <li>点“使用当前定位”可以把轨迹中心换成你当前的位置，并自动识别校区；</li>
+          <li>点“记录真实轨迹”会调用 GPS，结束后可勾选“使用真实轨迹”上传；</li>
+          <li>每天只能上传 1 次（服务器硬性限制），成功一次后按钮锁定到明天；单次上限 6 公里；</li>
+          <li>服务器上传时段 05:30–22:30，时段外会被拒绝；</li>
+          <li>如果提示“账号或密码错误”，请先在电脑端学校官网重置密码；</li>
+          <li>iPhone 用 Safari 打开本页，点分享 → 添加到主屏幕，即可像 App 一样使用。</li>
+        </ol>
+      </details>
+    </div>
+
+    <footer>
+      <div class="line">DickOnTop · 网页版无更新检测 · 仅用于个人学习</div>
+      <button id="btnLogout" class="link danger" type="button">退出登录 / 清除本机数据</button>
+    </footer>
+  </section>
+</div>
+
+<div id="toast"></div>
+
+<div id="modal" class="modal-backdrop hidden">
+  <div class="modal-card">
+    <h3 id="modalTitle"></h3>
+    <div id="modalBody" class="modal-body"></div>
+    <div class="modal-actions">
+      <button id="modalCancel" class="ghost hidden" type="button">取消</button>
+      <button id="modalOk" class="primary" type="button">确定</button>
+    </div>
+  </div>
+</div>
+
+<div id="routeView" class="route-view hidden">
+  <div class="route-head">
+    <div><b>路线规划</b><span id="routeCampus"></span></div>
+    <button id="routeClose" class="ghost" type="button">关闭</button>
+  </div>
+  <div id="routeMap"></div>
+  <div class="route-panel">
+    <div class="route-stats">
+      <span id="routeCpStat">打卡点 <b>0/0</b></span>
+      <span id="routeDistStat">路线 <b>0.00</b> km</span>
+      <span id="routeTargetStat">目标 3.00–6.00 km</span>
+    </div>
+    <div id="routeHint">正在准备地图…</div>
+    <div class="route-actions">
+      <button id="routeUndo" class="ghost" type="button">撤销</button>
+      <button id="routeClear" class="ghost" type="button">清空</button>
+      <button id="routeAuto" class="ghost" type="button">自动经过</button>
+      <button id="routeDone" class="primary" type="button">完成</button>
+    </div>
+  </div>
+</div>
+
+<script src="vendor/leaflet/leaflet.js"></script>
+<script>
+'use strict';
+
+/* ============================== 基础配置 ============================== */
+
+const API_BASE = 'https://sports2.sdut.edu.cn';
+const DAILY_LIMIT = 6000; // 米，每日上限 6 公里
+const LS_USER = 'dickontop_user_v1';
+const LS_ACCOUNT = 'dickontop_account_v1';
+const LS_WELCOME = 'dickontop_welcome_session';
+const LS_DISCLAIMER = 'dickontop_disclaimer_session';
+const LS_UPLOADED = 'dickontop_uploaded_date_v1';
+const LS_PLAN = 'dickontop_plan_v1';
+const CHECKPOINT_RADIUS = 20; // 米，与 App 的随机点判定半径一致
+
+const CAMPUS = {
+  1: { name: '西校区', lat: 36.80950, lng: 117.99700 },
+  2: { name: '东校区', lat: 36.80950, lng: 118.04100 }
+};
+
+const state = {
+  user: null,
+  cfg: null,
+  records: [],
+  termKm: null,
+  runCnt: null,
+  formReady: false,
+  geoCenter: null,
+  campusName: '',
+  recorded: null,          // { points, distance, duration }
+  recording: false,
+  watchId: null,
+  recordStart: 0,
+  recordDistance: 0,
+  recordPoints: [],
+  useRecorded: false,
+  previewCache: null,
+  trackSeed: Math.floor(Math.random() * 1000000000),
+  syncLock: false,
+  busy: false,
+  mapMeta: null,
+  mapMetaPromise: null,
+  plannedRoute: null,      // { points, meters, campus }
+  plan: {
+    active: false,
+    campus: 0,
+    checkpoints: [],
+    route: [],
+    map: null,
+    imageLayer: null,
+    routeLayer: null,
+    cpLayer: [],
+    loading: false
+  }
+};
+
+/* ============================== 工具函数 ============================== */
+
+const $ = (id) => document.getElementById(id);
+
+function pad(n) { return String(n).padStart(2, '0'); }
+function num(v, d) { const n = Number(v); return Number.isFinite(n) ? n : d; }
+function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+function ymd(d) {
+  d = d || new Date();
+  return d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate());
+}
+function ymdDash(d) {
+  d = d || new Date();
+  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+}
+function fmtDT(d) {
+  return ymdDash(d) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+}
+function toLocalInput(d) {
+  return ymdDash(d) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+}
+function parseDT(v) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(String(v || ''));
+  if (!m) return null;
+  const d = new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], 0);
+  return isNaN(d.getTime()) ? null : d;
+}
+function timeOnDate(date, hms) {
+  const p = String(hms || '00:00:00').split(':').map(Number);
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate(),
+    p[0] || 0, p[1] || 0, p[2] || 0);
+}
+function fmtDuration(sec) {
+  sec = Math.max(0, Math.round(Number(sec) || 0));
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  return h > 0 ? (h + ':' + pad(m) + ':' + pad(s)) : (pad(m) + ':' + pad(s));
+}
+function fmtPace(secPerKm) {
+  const sec = Math.max(0, Math.round(Number(secPerKm) || 0));
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return m + ':' + pad(s);
+}
+function fmtKm(meters) {
+  return (Math.max(0, Number(meters) || 0) / 1000).toFixed(2);
+}
+function parseDuration(text) {
+  const s = String(text || '').trim();
+  if (!s) return 0;
+  if (s.indexOf(':') >= 0) {
+    const p = s.split(':').map((x) => parseFloat(x) || 0);
+    if (p.length === 3) return Math.round(p[0] * 3600 + p[1] * 60 + p[2]);
+    if (p.length === 2) return Math.round(p[0] * 60 + p[1]);
+    return 0;
+  }
+  const f = parseFloat(s);
+  return Number.isFinite(f) && f > 0 ? Math.round(f * 60) : 0; // 纯数字按分钟
+}
+function haversine(a, b) {
+  const R = 6371000;
+  const rad = (v) => v * Math.PI / 180;
+  const dLat = rad(b.lat - a.lat);
+  const dLng = rad(b.lng - a.lng);
+  const h = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/* ============================== MD5 / 签名 ============================== */
+
+function md5(input) {
+  function safeAdd(x, y) {
+    const lsw = (x & 0xFFFF) + (y & 0xFFFF);
+    const msw = (x >> 16) + (y >> 16) + (lsw >> 16);
+    return (msw << 16) | (lsw & 0xFFFF);
+  }
+  function rol(num, cnt) { return (num << cnt) | (num >>> (32 - cnt)); }
+  function cmn(q, a, b, x, s, t) {
+    return safeAdd(rol(safeAdd(safeAdd(a, q), safeAdd(x, t)), s), b);
+  }
+  function ff(a, b, c, d, x, s, t) { return cmn((b & c) | (~b & d), a, b, x, s, t); }
+  function gg(a, b, c, d, x, s, t) { return cmn((b & d) | (c & ~d), a, b, x, s, t); }
+  function hh(a, b, c, d, x, s, t) { return cmn(b ^ c ^ d, a, b, x, s, t); }
+  function ii(a, b, c, d, x, s, t) { return cmn(c ^ (b | ~d), a, b, x, s, t); }
+
+  function core(x, len) {
+    x[len >> 5] |= 0x80 << (len % 32);
+    x[(((len + 64) >>> 9) << 4) + 14] = len;
+    let a = 1732584193, b = -271733879, c = -1732584194, d = 271733878;
+    for (let i = 0; i < x.length; i += 16) {
+      const oa = a, ob = b, oc = c, od = d;
+      a = ff(a, b, c, d, x[i], 7, -680876936);
+      d = ff(d, a, b, c, x[i + 1], 12, -389564586);
+      c = ff(c, d, a, b, x[i + 2], 17, 606105819);
+      b = ff(b, c, d, a, x[i + 3], 22, -1044525330);
+      a = ff(a, b, c, d, x[i + 4], 7, -176418897);
+      d = ff(d, a, b, c, x[i + 5], 12, 1200080426);
+      c = ff(c, d, a, b, x[i + 6], 17, -1473231341);
+      b = ff(b, c, d, a, x[i + 7], 22, -45705983);
+      a = ff(a, b, c, d, x[i + 8], 7, 1770035416);
+      d = ff(d, a, b, c, x[i + 9], 12, -1958414417);
+      c = ff(c, d, a, b, x[i + 10], 17, -42063);
+      b = ff(b, c, d, a, x[i + 11], 22, -1990404162);
+      a = ff(a, b, c, d, x[i + 12], 7, 1804603682);
+      d = ff(d, a, b, c, x[i + 13], 12, -40341101);
+      c = ff(c, d, a, b, x[i + 14], 17, -1502002290);
+      b = ff(b, c, d, a, x[i + 15], 22, 1236535329);
+      a = gg(a, b, c, d, x[i + 1], 5, -165796510);
+      d = gg(d, a, b, c, x[i + 6], 9, -1069501632);
+      c = gg(c, d, a, b, x[i + 11], 14, 643717713);
+      b = gg(b, c, d, a, x[i], 20, -373897302);
+      a = gg(a, b, c, d, x[i + 5], 5, -701558691);
+      d = gg(d, a, b, c, x[i + 10], 9, 38016083);
+      c = gg(c, d, a, b, x[i + 15], 14, -660478335);
+      b = gg(b, c, d, a, x[i + 4], 20, -405537848);
+      a = gg(a, b, c, d, x[i + 9], 5, 568446438);
+      d = gg(d, a, b, c, x[i + 14], 9, -1019803690);
+      c = gg(c, d, a, b, x[i + 3], 14, -187363961);
+      b = gg(b, c, d, a, x[i + 8], 20, 1163531501);
+      a = gg(a, b, c, d, x[i + 13], 5, -1444681467);
+      d = gg(d, a, b, c, x[i + 2], 9, -51403784);
+      c = gg(c, d, a, b, x[i + 7], 14, 1735328473);
+      b = gg(b, c, d, a, x[i + 12], 20, -1926607734);
+      a = hh(a, b, c, d, x[i + 5], 4, -378558);
+      d = hh(d, a, b, c, x[i + 8], 11, -2022574463);
+      c = hh(c, d, a, b, x[i + 11], 16, 1839030562);
+      b = hh(b, c, d, a, x[i + 14], 23, -35309556);
+      a = hh(a, b, c, d, x[i + 1], 4, -1530992060);
+      d = hh(d, a, b, c, x[i + 4], 11, 1272893353);
+      c = hh(c, d, a, b, x[i + 7], 16, -155497632);
+      b = hh(b, c, d, a, x[i + 10], 23, -1094730640);
+      a = hh(a, b, c, d, x[i + 13], 4, 681279174);
+      d = hh(d, a, b, c, x[i], 11, -358537222);
+      c = hh(c, d, a, b, x[i + 3], 16, -722521979);
+      b = hh(b, c, d, a, x[i + 6], 23, 76029189);
+      a = hh(a, b, c, d, x[i + 9], 4, -640364487);
+      d = hh(d, a, b, c, x[i + 12], 11, -421815835);
+      c = hh(c, d, a, b, x[i + 15], 16, 530742520);
+      b = hh(b, c, d, a, x[i + 2], 23, -995338651);
+      a = ii(a, b, c, d, x[i], 6, -198630844);
+      d = ii(d, a, b, c, x[i + 7], 10, 1126891415);
+      c = ii(c, d, a, b, x[i + 14], 15, -1416354905);
+      b = ii(b, c, d, a, x[i + 5], 21, -57434055);
+      a = ii(a, b, c, d, x[i + 12], 6, 1700485571);
+      d = ii(d, a, b, c, x[i + 3], 10, -1894986606);
+      c = ii(c, d, a, b, x[i + 10], 15, -1051523);
+      b = ii(b, c, d, a, x[i + 1], 21, -2054922799);
+      a = ii(a, b, c, d, x[i + 8], 6, 1873313359);
+      d = ii(d, a, b, c, x[i + 15], 10, -30611744);
+      c = ii(c, d, a, b, x[i + 6], 15, -1560198380);
+      b = ii(b, c, d, a, x[i + 13], 21, 1309151649);
+      a = ii(a, b, c, d, x[i + 4], 6, -145523070);
+      d = ii(d, a, b, c, x[i + 11], 10, -1120210379);
+      c = ii(c, d, a, b, x[i + 2], 15, 718787259);
+      b = ii(b, c, d, a, x[i + 9], 21, -343485551);
+      a = safeAdd(a, oa); b = safeAdd(b, ob); c = safeAdd(c, oc); d = safeAdd(d, od);
+    }
+    return [a, b, c, d];
+  }
+  function binl2rstr(input) {
+    let out = '';
+    for (let i = 0; i < input.length * 32; i += 8) {
+      out += String.fromCharCode((input[i >> 5] >>> (i % 32)) & 0xFF);
+    }
+    return out;
+  }
+  function rstr2binl(input) {
+    const out = [];
+    out[(input.length >> 2) - 1] = undefined;
+    for (let i = 0; i < out.length; i += 1) out[i] = 0;
+    for (let i = 0; i < input.length * 8; i += 8) {
+      out[i >> 5] |= (input.charCodeAt(i / 8) & 0xFF) << (i % 32);
+    }
+    return out;
+  }
+  function rstr2hex(input) {
+    const tab = '0123456789abcdef';
+    let out = '';
+    for (let i = 0; i < input.length; i += 1) {
+      const x = input.charCodeAt(i);
+      out += tab.charAt((x >>> 4) & 0x0F) + tab.charAt(x & 0x0F);
+    }
+    return out;
+  }
+  function utf8(s) { return unescape(encodeURIComponent(s)); }
+
+  return rstr2hex(binl2rstr(core(rstr2binl(utf8(input)), utf8(input).length * 8)));
+}
+
+function makeSalt() {
+  try {
+    if (window.crypto && crypto.randomUUID) {
+      return crypto.randomUUID().replace(/-/g, '').slice(0, 8);
+    }
+  } catch (e) { /* ignore */ }
+  const chars = '0123456789abcdef';
+  let s = '';
+  for (let i = 0; i < 8; i += 1) s += chars.charAt(Math.floor(Math.random() * 16));
+  return s;
+}
+function makeSign(salt) {
+  return md5(salt + ymd(new Date()) + 'duDusDut').toLowerCase();
+}
+
+/* ============================== API ============================== */
+
+async function api(path, body) {
+  const salt = makeSalt();
+  const url = API_BASE + path + '?salt=' + encodeURIComponent(salt) + '&sign=' + encodeURIComponent(makeSign(salt));
+  const init = { method: 'POST', cache: 'no-store', referrerPolicy: 'no-referrer' };
+  if (body !== undefined) {
+    init.headers = { 'Content-Type': 'application/json' };
+    init.body = JSON.stringify(body);
+  }
+  let res;
+  try {
+    res = await fetch(url, init);
+  } catch (e) {
+    throw new Error('网络请求失败，请检查网络或服务器是否可访问');
+  }
+  const text = await res.text();
+  let json = null;
+  if (text) {
+    try { json = JSON.parse(text); }
+    catch (e) { throw new Error('服务器返回异常（HTTP ' + res.status + '）'); }
+  }
+  if (!res.ok) {
+    throw new Error('HTTP ' + res.status + (json && json.msg ? '：' + json.msg : ''));
+  }
+  if (!json) throw new Error('服务器返回为空');
+  return json;
+}
+function apiOk(r) { return !!r && String(r.code) === '1'; }
+function apiMsg(r) { return (r && (r.msg || r.message)) || '未知错误'; }
+
+/* ============================== 配置 / 记录 ============================== */
+
+function normalizeCfg(d) {
+  d = d || {};
+  return {
+    boyMinLength: num(d.boyMinLength, 3000),
+    boyMaxValidLength: num(d.boyMaxValidLength, 6000),
+    boyMinSpeed: num(d.boyMinSpeed, 540),
+    boyMaxSpeed: num(d.boyMaxSpeed, 180),
+    girlMinLength: num(d.girlMinLength, 2500),
+    girlMaxValidLength: num(d.girlMaxValidLength, 6000),
+    girlMinSpeed: num(d.girlMinSpeed, 540),
+    girlMaxSpeed: num(d.girlMaxSpeed, 180),
+    minTime: num(d.minTime, 300),
+    maxLength: num(d.maxLength, 20000),
+    dayCntUp: num(d.dayCntUp, 1),
+    dayTimeBegin: d.dayTimeBegin || '05:30:00',
+    dayTimeEnd: d.dayTimeEnd || '22:30:00',
+    dateBegin: d.dateBegin || '',
+    dateEnd: d.dateEnd || '',
+    semesterName: d.semesterName || ''
+  };
+}
+function cfg() { return state.cfg || normalizeCfg({}); }
+function isGirl() { return !!state.user && String(state.user.userSex) === '0'; }
+function limits() {
+  const c = cfg();
+  return isGirl()
+    ? { min: c.girlMinLength, max: c.girlMaxValidLength, minSpeed: c.girlMinSpeed, maxSpeed: c.girlMaxSpeed }
+    : { min: c.boyMinLength, max: c.boyMaxValidLength, minSpeed: c.boyMinSpeed, maxSpeed: c.boyMaxSpeed };
+}
+
+async function loadConfig() {
+  const r = await api('/api/semester/getCurrSemester');
+  if (!apiOk(r) || !r.data) throw new Error('学期规则读取失败：' + apiMsg(r));
+  state.cfg = normalizeCfg(r.data);
+}
+async function loadRecords() {
+  const r = await api('/api/run/queryRunList', { pageNo: 1, pageSize: 20, userId: state.user.id });
+  if (!apiOk(r)) throw new Error('记录读取失败：' + apiMsg(r));
+  state.records = Array.isArray(r.data) ? r.data : [];
+}
+async function loadTermKm() {
+  const r = await api('/api/run/getRunLengthKm', { userId: state.user.id });
+  if (apiOk(r)) state.termKm = num(r.data, 0);
+}
+async function loadRunCnt() {
+  const r = await api('/api/run/getRunCnt', { userId: state.user.id });
+  if (apiOk(r)) state.runCnt = num(r.data, 0);
+}
+function todayRecords() {
+  const today = ymdDash(new Date());
+  return (state.records || []).filter((it) => {
+    const d = String(it.beginTime || '').replace(/\//g, '-').slice(0, 10);
+    return d === today;
+  });
+}
+function todayMeters() {
+  return todayRecords().reduce((sum, it) => sum + (Number(it.totalLength) || 0), 0);
+}
+function uploadedTodayLocal() {
+  if (!state.user || !state.user.id) return false;
+  return localStorage.getItem(LS_UPLOADED) === (state.user.id + ':' + ymdDash(new Date()));
+}
+function todayUploadCount() {
+  return Math.max(todayRecords().length, uploadedTodayLocal() ? 1 : 0);
+}
+function markUploadedToday() {
+  if (!state.user || !state.user.id) return;
+  localStorage.setItem(LS_UPLOADED, state.user.id + ':' + ymdDash(new Date()));
+}
+async function refreshAll() {
+  setBanner('');
+  const results = await Promise.allSettled([loadConfig(), loadRecords(), loadTermKm(), loadRunCnt()]);
+  const failed = results.find((r) => r.status === 'rejected');
+  if (failed) setBanner('部分数据加载失败：' + failed.reason.message + '（可下拉刷新或重新登录）');
+  render();
+}
+
+/* ============================== 渲染 ============================== */
+
+function setBanner(msg) {
+  const el = $('banner');
+  if (msg) { el.textContent = msg; el.classList.remove('hidden'); }
+  else { el.classList.add('hidden'); }
+}
+
+function render() {
+  if (!state.user) return;
+  const name = state.user.userName || state.user.userCode || '同学';
+  const code = state.user.userCode || '';
+  $('userChip').innerHTML = '<b>' + esc(name) + '</b><br>' + esc(code);
+
+  const used = todayMeters();
+  const locked = todayUploadCount() >= cfg().dayCntUp;
+  const remain = locked ? 0 : Math.max(0, DAILY_LIMIT - used);
+  $('remainLabel').textContent = locked ? '今日上传次数已用完' : '今日剩余额度';
+  $('todayKm').textContent = fmtKm(used);
+  $('remainBig').innerHTML = fmtKm(remain) + '<small>km</small>';
+  $('barFill').style.width = clamp(used / DAILY_LIMIT * 100, 0, 100).toFixed(1) + '%';
+  $('termKm').textContent = state.termKm == null ? '--' : (Number(state.termKm)).toFixed(2);
+  $('runCnt').textContent = state.runCnt == null ? '--' : state.runCnt;
+  $('cfgTag').textContent = isGirl() ? '女生标准' : '男生标准';
+
+  const todayCount = todayUploadCount();
+  $('todayBadge').style.display = todayCount ? '' : 'none';
+  $('todayBadge').textContent = '今日已上传 ' + todayCount + ' 次';
+
+  renderRecords();
+  updateHint();
+  updateTrackStatus();
+  applyDayLock();
+}
+
+function renderRecords() {
+  const list = state.records || [];
+  if (!list.length) {
+    $('recordsList').innerHTML = '<div class="empty">还没有跑步记录</div>';
+    return;
+  }
+  const today = ymdDash(new Date());
+  $('recordsList').innerHTML = list.slice(0, 12).map((it) => {
+    const d = String(it.beginTime || '').replace(/\//g, '-');
+    const isToday = d.slice(0, 10) === today;
+    const km = (Number(it.totalLength) || 0) / 1000;
+    const sec = num(it.totalTime, 0);
+    const pace = km > 0 ? Math.round(sec / km) : 0;
+    return '<div class="rec' + (isToday ? ' today' : '') + '">' +
+      '<div><b>' + km.toFixed(2) + '</b> km</div>' +
+      '<div class="muted">' + esc(d.slice(0, 16)) + '</div>' +
+      '<div class="muted">' + fmtDuration(sec) + ' · ' + fmtPace(pace) + '/km</div>' +
+      '</div>';
+  }).join('');
+}
+
+function updateHint() {
+  const el = $('hint');
+  if (!el) return;
+  const c = cfg();
+  const l = limits();
+  const used = todayMeters();
+  const remain = Math.max(0, DAILY_LIMIT - used);
+  const count = todayUploadCount();
+  const km = parseFloat($('km').value) || 0;
+  const secs = parseDuration($('time').value);
+  const lines = [];
+
+  if (count >= c.dayCntUp) {
+    lines.push('<div class="line err">今天已上传 ' + count + ' 次，服务器每天只能上传 ' +
+      c.dayCntUp + ' 次，按钮已锁定，明天再来。</div>');
+  } else {
+    lines.push('<div class="line">每天只能上传 ' + c.dayCntUp + ' 次 · 单次上限 6.00 公里 · 今日已上传 ' +
+      fmtKm(used) + ' 公里 · 剩余 ' + fmtKm(remain) + ' 公里</div>');
+  }
+  lines.push('<div class="line">' + (isGirl() ? '女生' : '男生') + '标准：' +
+    (l.min / 1000).toFixed(2) + '–' + (l.max / 1000).toFixed(2) + ' 公里，配速 ' +
+    fmtPace(l.maxSpeed) + '–' + fmtPace(l.minSpeed) + ' /公里</div>');
+
+  if (km > 0 && secs > 0) {
+    const pace = Math.round(secs / km);
+    const valid = pace >= l.maxSpeed && pace <= l.minSpeed;
+    lines.push('<div class="line ' + (valid ? 'ok' : 'warn') + '">当前：' + km.toFixed(2) +
+      ' 公里 / ' + fmtDuration(secs) + ' / ' + fmtPace(pace) + ' 每公里</div>');
+  }
+
+  if (count < c.dayCntUp && remain <= 0) {
+    lines.push('<div class="line err">今日里程额度已用完，明天再试。</div>');
+  }
+
+  if (!nowInWindow(c)) {
+    lines.push('<div class="line warn">当前不在服务器跑步时段 ' + c.dayTimeBegin.slice(0, 5) +
+      '–' + c.dayTimeEnd.slice(0, 5) + '，现在上传会被拒绝。</div>');
+  }
+
+  el.innerHTML = lines.join('');
+}
+
+function nowInWindow(c) {
+  const now = new Date();
+  return now >= timeOnDate(now, c.dayTimeBegin) && now <= timeOnDate(now, c.dayTimeEnd);
+}
+function dtInWindow(dt, c) {
+  return dt >= timeOnDate(dt, c.dayTimeBegin) && dt <= timeOnDate(dt, c.dayTimeEnd);
+}
+
+function updateTrackStatus() {
+  const el = $('trackStatus');
+  if (!el) return;
+  if (state.recording) {
+    el.textContent = '记录中… ' + fmtKm(state.recordDistance) + ' 公里（' +
+      state.recordPoints.length + ' 个点）';
+    return;
+  }
+  if (state.plannedRoute) {
+    el.textContent = '将使用手绘路线：' + fmtKm(state.plannedRoute.meters) + ' 公里，' +
+      state.plannedRoute.points.length + ' 个点' +
+      (state.plannedRoute.checkpointCount ? '，已覆盖 ' + state.plannedRoute.checkpointCount + ' 个打卡点' : '');
+    return;
+  }
+  if (state.recorded) {
+    if (state.useRecorded) {
+      el.textContent = '将使用真实轨迹：' + fmtKm(state.recorded.distance) + ' 公里，' +
+        state.recorded.points.length + ' 个点';
+    } else {
+      el.textContent = '已保存真实轨迹 ' + fmtKm(state.recorded.distance) +
+        ' 公里；当前仍使用模拟轨迹';
+    }
+    return;
+  }
+  const centerLabel = state.geoCenter ? '当前位置'
+    : ((CAMPUS[$('campus').value] || CAMPUS[1]).name);
+  const km = parseFloat($('km').value) || 0;
+  el.textContent = '将使用模拟轨迹：约 ' + km.toFixed(2) + ' 公里，以' + centerLabel + '为中心';
+}
+
+/* ============================== 轨迹生成 ============================== */
+
+function getCenter() {
+  if (state.geoCenter) {
+    return { lat: state.geoCenter.lat, lng: state.geoCenter.lng };
+  }
+  const c = CAMPUS[$('campus').value] || CAMPUS[1];
+  return { lat: c.lat, lng: c.lng };
+}
+
+function buildStadiumTrack(center, meters, seed) {
+  meters = Math.max(0, Number(meters) || 0);
+  if (meters <= 0) return [];
+  const straight = 84.39;
+  const radius = 36.5;
+  const loopLen = 2 * straight + 2 * Math.PI * radius; // 约 398m
+  const spacing = 10;
+  const total = Math.max(80, Math.min(800, Math.round(meters / spacing)));
+  const rnd = mulberry32(seed >>> 0);
+  const rot = rnd() * Math.PI * 2;
+  const cosR = Math.cos(rot);
+  const sinR = Math.sin(rot);
+  const cosLat = Math.cos(center.lat * Math.PI / 180);
+  const pts = [];
+
+  function pointAt(s) {
+    s = ((s % loopLen) + loopLen) % loopLen;
+    let x, y;
+    if (s < straight) {
+      x = -straight / 2 + s;
+      y = -radius;
+    } else if (s < straight + Math.PI * radius) {
+      const a = -Math.PI / 2 + (s - straight) / radius;
+      x = straight / 2 + radius * Math.cos(a);
+      y = radius * Math.sin(a);
+    } else if (s < 2 * straight + Math.PI * radius) {
+      x = straight / 2 - (s - straight - Math.PI * radius);
+      y = radius;
+    } else {
+      const a = Math.PI / 2 + (s - 2 * straight - Math.PI * radius) / radius;
+      x = -straight / 2 + radius * Math.cos(a);
+      y = radius * Math.sin(a);
+    }
+    const xr = x * cosR - y * sinR;
+    const yr = x * sinR + y * cosR;
+    const jx = (rnd() - 0.5) * 2.2;
+    const jy = (rnd() - 0.5) * 2.2;
+    return {
+      lat: center.lat + (yr + jy) / 111320,
+      lng: center.lng + (xr + jx) / (111320 * cosLat)
+    };
+  }
+
+  for (let i = 0; i < total; i += 1) {
+    const d = total === 1 ? 0 : meters * i / (total - 1);
+    pts.push(pointAt(d));
+  }
+  return pts;
+}
+
+function ensurePreviewTrack() {
+  const km = parseFloat($('km').value) || 0;
+  const meters = Math.round(km * 1000);
+  if (meters <= 0) return [];
+  if (state.plannedRoute && state.plannedRoute.points.length >= 2) {
+    return state.plannedRoute.points;
+  }
+  if (state.useRecorded && state.recorded && state.recorded.points.length >= 2) {
+    return state.recorded.points;
+  }
+  const center = getCenter();
+  const key = 'sim:' + center.lat.toFixed(6) + ':' + center.lng.toFixed(6) +
+    ':' + meters + ':' + state.trackSeed;
+  if (!state.previewCache || state.previewCache.key !== key) {
+    state.previewCache = { key: key, points: buildStadiumTrack(center, meters, state.trackSeed) };
+  }
+  return state.previewCache.points;
+}
+
+function markListJson(points) {
+  const arr = points.map((p, i) => {
+    const item = {
+      latLng: {
+        altitude: 0.0,
+        latitude: Number(p.lat.toFixed(6)),
+        longitude: Number(p.lng.toFixed(6)),
+        throwException: false
+      }
+    };
+    if (i === 0) item.isStartPosition = true;
+    return item;
+  });
+  return JSON.stringify(arr);
+}
+
+/* ============================== 路线规划 ============================== */
+
+let planSaveTimer = null;
+
+function loadPlanCache() {
+  try {
+    const raw = sessionStorage.getItem(LS_PLAN);
+    if (!raw) return null;
+    const p = JSON.parse(raw);
+    if (!p || !state.user || p.userId !== state.user.id || p.date !== ymdDash(new Date())) return null;
+    if (!Array.isArray(p.checkpoints)) p.checkpoints = [];
+    if (!Array.isArray(p.route)) p.route = [];
+    return p;
+  } catch (e) {
+    return null;
+  }
+}
+
+function savePlanCache() {
+  if (!state.user) return;
+  const cache = {
+    userId: state.user.id,
+    date: ymdDash(new Date()),
+    campus: state.plan.campus || Number($('campus').value) || 1,
+    checkpoints: state.plan.checkpoints.map((c) => ({
+      id: c.id, lat: c.lat, lng: c.lng, isPass: !!c.isPass
+    })),
+    route: state.plan.route.map((p) => ({ lat: p.lat, lng: p.lng })),
+    applied: !!state.plannedRoute,
+    meters: state.plannedRoute ? state.plannedRoute.meters : 0,
+    checkpointCount: state.plannedRoute ? (state.plannedRoute.checkpointCount || 0) : 0
+  };
+  try { sessionStorage.setItem(LS_PLAN, JSON.stringify(cache)); } catch (e) { /* ignore */ }
+}
+
+function savePlanCacheSoon() {
+  clearTimeout(planSaveTimer);
+  planSaveTimer = setTimeout(savePlanCache, 250);
+}
+
+function clearPlanCache() {
+  clearTimeout(planSaveTimer);
+  try { sessionStorage.removeItem(LS_PLAN); } catch (e) { /* ignore */ }
+}
+
+async function loadMapMeta() {
+  if (state.mapMeta) return state.mapMeta;
+  if (!state.mapMetaPromise) {
+    state.mapMetaPromise = fetch('map/map.json', { cache: 'no-store' })
+      .then((r) => {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then((m) => {
+        state.mapMeta = m;
+        return m;
+      })
+      .catch((e) => {
+        state.mapMetaPromise = null;
+        throw e;
+      });
+  }
+  return state.mapMetaPromise;
+}
+
+function routeHint(text, cls) {
+  const el = $('routeHint');
+  if (!el) return;
+  el.innerHTML = cls ? '<span class="' + cls + '">' + esc(text) + '</span>' : esc(text);
+}
+
+function routeLatLngs() {
+  return state.plan.route.map((p) => [p.lat, p.lng]);
+}
+
+function cloneRoute(route) {
+  return route.map((p) => ({ lat: p.lat, lng: p.lng }));
+}
+
+function routeMeters(route) {
+  let sum = 0;
+  for (let i = 1; i < route.length; i += 1) sum += haversine(route[i - 1], route[i]);
+  return sum;
+}
+
+function pointSegmentMeters(p, a, b) {
+  const lat0 = (a.lat + b.lat + p.lat) / 3 * Math.PI / 180;
+  const kx = 111320 * Math.cos(lat0);
+  const ky = 110540;
+  const ax = (a.lng - p.lng) * kx;
+  const ay = (a.lat - p.lat) * ky;
+  const bx = (b.lng - p.lng) * kx;
+  const by = (b.lat - p.lat) * ky;
+  const dx = bx - ax;
+  const dy = by - ay;
+  const len2 = dx * dx + dy * dy;
+  let t = len2 > 0 ? -(ax * dx + ay * dy) / len2 : 0;
+  t = Math.max(0, Math.min(1, t));
+  const x = ax + t * dx;
+  const y = ay + t * dy;
+  return Math.sqrt(x * x + y * y);
+}
+
+function checkpointMinMeters(cp, route) {
+  if (!route.length) return Infinity;
+  if (route.length === 1) return haversine(cp, route[0]);
+  let best = Infinity;
+  for (let i = 1; i < route.length; i += 1) {
+    const d = pointSegmentMeters(cp, route[i - 1], route[i]);
+    if (d < best) best = d;
+  }
+  return best;
+}
+
+function checkpointCovered(cp, route) {
+  return checkpointMinMeters(cp, route) <= CHECKPOINT_RADIUS;
+}
+
+function requiredCheckpoints() {
+  return state.plan.checkpoints.filter((c) => !c.isPass);
+}
+
+function makeCpIcon(n, ok, isPass) {
+  const cls = isPass ? ' idle' : (ok ? ' ok' : '');
+  return L.divIcon({
+    className: 'cp-icon' + cls,
+    html: '<b>' + n + '</b>',
+    iconSize: [24, 24],
+    iconAnchor: [12, 12]
+  });
+}
+
+function initRouteMap(campus) {
+  if (state.plan.map && state.plan.campus === campus) {
+    state.plan.map.invalidateSize();
+    return;
+  }
+  if (state.plan.map) {
+    try { state.plan.map.remove(); } catch (e) { /* ignore */ }
+    state.plan.map = null;
+  }
+  const meta = state.mapMeta && state.mapMeta.campuses[String(campus)];
+  if (!meta) throw new Error('缺少校区地图数据');
+  if (typeof L === 'undefined') throw new Error('地图组件未加载');
+
+  const bounds = L.latLngBounds([meta.south, meta.west], [meta.north, meta.east]);
+  const map = L.map('routeMap', {
+    zoomControl: true,
+    attributionControl: false,
+    minZoom: 15,
+    maxZoom: 19,
+    maxBounds: bounds,
+    maxBoundsViscosity: 0.85
+  });
+  map.setView([meta.centerLat, meta.centerLng], 16);
+  L.imageOverlay('map/' + meta.image, bounds).addTo(map);
+  L.control.attribution({ position: 'topright', prefix: false })
+    .addAttribution(state.mapMeta.attribution || '© 高德地图').addTo(map);
+  L.control.scale({ imperial: false, position: 'bottomleft' }).addTo(map);
+
+  state.plan.map = map;
+  state.plan.imageLayer = bounds;
+  state.plan.routeLayer = L.polyline([], {
+    color: '#39ff88', weight: 5, opacity: 0.95, lineJoin: 'round', lineCap: 'round'
+  }).addTo(map);
+  map.on('click', (e) => {
+    if (!state.plan.active || state.plan.loading) return;
+    state.plan.route.push({ lat: e.latlng.lat, lng: e.latlng.lng });
+    renderRoute();
+  });
+}
+
+function renderCheckpoints() {
+  const map = state.plan.map;
+  if (!map) return;
+  state.plan.cpLayer.forEach((layer) => {
+    try { map.removeLayer(layer); } catch (e) { /* ignore */ }
+  });
+  state.plan.cpLayer = [];
+  state.plan.checkpoints.forEach((cp, i) => {
+    const marker = L.marker([cp.lat, cp.lng], {
+      icon: makeCpIcon(i + 1, false, cp.isPass),
+      keyboard: false,
+      zIndexOffset: 500
+    }).addTo(map);
+    marker.bindTooltip('打卡点 ' + (i + 1) + (cp.isPass ? '（已通过）' : ''), {
+      direction: 'top', offset: [0, -12]
+    });
+    const circle = L.circle([cp.lat, cp.lng], {
+      radius: CHECKPOINT_RADIUS,
+      color: 'rgba(255,92,122,0.75)',
+      weight: 1,
+      fillColor: 'rgba(255,92,122,0.12)',
+      fillOpacity: 0.5,
+      interactive: false
+    }).addTo(map);
+    cp._marker = marker;
+    cp._circle = circle;
+    state.plan.cpLayer.push(marker, circle);
+    if (i === 0 && state.plan.checkpoints.length > 1) {
+      map.setView([cp.lat, cp.lng], 16);
+    }
+  });
+  if (!state.plan.checkpoints.length) {
+    const meta = state.mapMeta.campuses[String(state.plan.campus)];
+    map.setView([meta.centerLat, meta.centerLng], 16);
+  }
+}
+
+function renderRoute() {
+  if (!state.plan.map) return;
+  state.plan.routeLayer.setLatLngs(routeLatLngs());
+  const route = state.plan.route;
+  const meters = routeMeters(route);
+  const required = requiredCheckpoints();
+  let covered = 0;
+  state.plan.checkpoints.forEach((cp, i) => {
+    const ok = cp.isPass || checkpointCovered(cp, route);
+    if (!cp.isPass && ok) covered += 1;
+    if (cp._marker) cp._marker.setIcon(makeCpIcon(i + 1, ok, cp.isPass));
+    if (cp._circle) {
+      cp._circle.setStyle(ok ? {
+        color: 'rgba(57,255,136,0.8)',
+        fillColor: 'rgba(57,255,136,0.16)'
+      } : {
+        color: 'rgba(255,92,122,0.75)',
+        fillColor: 'rgba(255,92,122,0.12)'
+      });
+    }
+  });
+
+  const cps = $('routeCpStat');
+  cps.innerHTML = '打卡点 <b>' + covered + '/' + required.length + '</b>';
+  cps.className = required.length && covered === required.length ? 'ok' : (required.length ? 'bad' : '');
+
+  const ds = $('routeDistStat');
+  ds.innerHTML = '路线 <b>' + fmtKm(meters) + '</b> km';
+  const l = limits();
+  ds.className = meters >= l.min && meters <= l.max ? 'ok' : '';
+
+  const target = '目标 ' + fmtKm(l.min) + '–' + fmtKm(l.max) + ' km';
+  $('routeTargetStat').textContent = target;
+
+  if (!route.length) {
+    routeHint('在地图上依次点选路线拐点；红点是必须经过的打卡点，圆圈为 20 米判定范围。', '');
+  } else if (required.length && covered < required.length) {
+    routeHint('还有 ' + (required.length - covered) + ' 个打卡点未经过，请把路线画到红色圆点附近。', 'warn');
+  } else if (meters < l.min) {
+    routeHint('当前 ' + fmtKm(meters) + ' 公里，低于最低 ' + fmtKm(l.min) + ' 公里，请多绕一段补足。', 'warn');
+  } else if (meters > l.max) {
+    routeHint('当前 ' + fmtKm(meters) + ' 公里，超过单次上限 ' + fmtKm(l.max) + ' 公里，请撤销或清空后重画。', 'err');
+  } else {
+    routeHint('路线已覆盖全部打卡点，长度符合要求，可以点“完成”。', 'ok');
+  }
+  savePlanCacheSoon();
+}
+
+function autoConnectCheckpoints() {
+  const all = state.plan.checkpoints.slice();
+  if (!all.length) {
+    routeHint('服务器没有下发打卡点，可以直接关闭后使用模拟轨迹。', 'warn');
+    return;
+  }
+  const required = all.filter((c) => !c.isPass);
+  const pts = required.length ? required : all;
+  const center = CAMPUS[state.plan.campus] || CAMPUS[1];
+  const start = { lat: center.lat, lng: center.lng };
+  let remain = pts.slice();
+  let bi = 0;
+  let best = Infinity;
+  remain.forEach((p, i) => {
+    const d = haversine(start, p);
+    if (d < best) { best = d; bi = i; }
+  });
+  let cur = remain.splice(bi, 1)[0];
+  const order = [cur];
+  while (remain.length) {
+    bi = 0;
+    best = Infinity;
+    remain.forEach((p, i) => {
+      const d = haversine(cur, p);
+      if (d < best) { best = d; bi = i; }
+    });
+    cur = remain.splice(bi, 1)[0];
+    order.push(cur);
+  }
+  order.push(order[0]);
+  state.plan.route = order.map((p) => ({ lat: p.lat, lng: p.lng }));
+  renderRoute();
+  routeHint('已按打卡点自动连线并闭合回路，可继续点地图微调；直线可能穿过建筑，建议按道路调整。', 'warn');
+}
+
+function undoRoutePoint() {
+  if (!state.plan.route.length) return;
+  state.plan.route.pop();
+  renderRoute();
+}
+
+function clearRoutePoints() {
+  state.plan.route = [];
+  renderRoute();
+}
+
+function insertCheckpoint(route, cp) {
+  for (let i = 0; i < route.length; i += 1) {
+    if (haversine(route[i], cp) < 1) return route;
+  }
+  if (route.length < 2) return route.concat([{ lat: cp.lat, lng: cp.lng }]);
+  let best = Infinity;
+  let idx = 1;
+  for (let i = 1; i < route.length; i += 1) {
+    const d = pointSegmentMeters(cp, route[i - 1], route[i]);
+    if (d < best) { best = d; idx = i; }
+  }
+  const out = route.slice();
+  out.splice(idx, 0, { lat: cp.lat, lng: cp.lng });
+  return out;
+}
+
+function densifyRoute(route, step) {
+  if (route.length < 2) return route.slice();
+  let total = routeMeters(route);
+  step = Math.max(5, Number(step) || 10);
+  if (total / step > 1200) step = total / 1200;
+  const out = [{ lat: route[0].lat, lng: route[0].lng }];
+  for (let i = 1; i < route.length; i += 1) {
+    const a = route[i - 1];
+    const b = route[i];
+    const d = haversine(a, b);
+    if (d < 0.3) continue;
+    const n = Math.max(1, Math.ceil(d / step));
+    for (let j = 1; j <= n; j += 1) {
+      out.push({
+        lat: a.lat + (b.lat - a.lat) * j / n,
+        lng: a.lng + (b.lng - a.lng) * j / n
+      });
+    }
+  }
+  return out;
+}
+
+function finishPlan() {
+  if (!state.plan.map) return;
+  if (state.plan.route.length < 2) {
+    routeHint('至少需要在地图上点两个拐点，才能生成路线。', 'err');
+    return;
+  }
+  const required = requiredCheckpoints();
+  const missing = required.filter((cp) => !checkpointCovered(cp, state.plan.route));
+  if (missing.length) {
+    routeHint('还有 ' + missing.length + ' 个打卡点未经过（红色圆点），请把路线画到它们 20 米范围内。', 'err');
+    toast('还有 ' + missing.length + ' 个打卡点未经过');
+    return;
+  }
+  let snapped = cloneRoute(state.plan.route);
+  required.forEach((cp) => { snapped = insertCheckpoint(snapped, cp); });
+  const points = densifyRoute(snapped, 10);
+  const meters = Math.round(routeMeters(points));
+  const l = limits();
+  if (meters < l.min) {
+    routeHint('路线只有 ' + fmtKm(meters) + ' 公里，低于最低 ' + fmtKm(l.min) + ' 公里，请多绕一段。', 'err');
+    return;
+  }
+  if (meters > l.max) {
+    routeHint('路线 ' + fmtKm(meters) + ' 公里，超过单次上限 ' + fmtKm(l.max) + ' 公里，请缩短。', 'err');
+    return;
+  }
+  state.plan.route = snapped;
+  state.plannedRoute = {
+    points: points,
+    meters: meters,
+    campus: state.plan.campus,
+    checkpointCount: required.length
+  };
+  $('km').value = (meters / 1000).toFixed(2);
+  $('km').readOnly = true;
+  savePlanCache();
+  updatePlanStatus();
+  onKmInput();
+  updateTrackStatus();
+  drawPreviewSoon();
+  closeRoutePlanner();
+  toast('路线已应用：' + fmtKm(meters) + ' 公里，' + points.length + ' 个点');
+}
+
+function updatePlanStatus() {
+  const el = $('planStatus');
+  const clearBtn = $('btnClearPlan');
+  if (!el) return;
+  if (!state.plannedRoute) {
+    el.classList.add('hidden');
+    if (clearBtn) clearBtn.classList.add('hidden');
+    return;
+  }
+  const cp = state.plannedRoute.checkpointCount || 0;
+  el.innerHTML = '已应用手绘路线：<b>' + fmtKm(state.plannedRoute.meters) + '</b> km · <b>' +
+    state.plannedRoute.points.length + '</b> 个轨迹点' +
+    (cp ? ' · <b>' + cp + '</b> 个打卡点' : '');
+  el.classList.remove('hidden');
+  if (clearBtn) clearBtn.classList.remove('hidden');
+}
+
+function closeRoutePlanner() {
+  state.plan.active = false;
+  $('routeView').classList.add('hidden');
+}
+
+async function fetchPlanCheckpoints() {
+  state.plan.loading = true;
+  routeHint('正在检查上传时段并获取本次随机打卡点…', '');
+  try {
+    const r0 = await api('/api/run/checkRunAllow', { userId: state.user.id });
+    if (!apiOk(r0)) {
+      routeHint('当前不在打卡时段：' + apiMsg(r0) + '。仍可继续在校园地图上绘制路线。', 'warn');
+    }
+    const center = CAMPUS[state.plan.campus] || CAMPUS[1];
+    const r = await api('/api/semester/queryPoint', {
+      campus: state.plan.campus,
+      pointLat: center.lat,
+      pointLong: center.lng,
+      userId: state.user.id
+    });
+    if (!apiOk(r)) throw new Error(apiMsg(r));
+    const list = Array.isArray(r.data) ? r.data : [];
+    state.plan.checkpoints = list.map((p, i) => ({
+      id: p.id != null ? p.id : i,
+      lat: Number(p.pointLat),
+      lng: Number(p.pointLong),
+      isPass: !!p.isPass
+    })).filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
+    state.plan.route = [];
+    renderCheckpoints();
+    renderRoute();
+    savePlanCache();
+    if (!state.plan.checkpoints.length) {
+      routeHint('服务器本次没有下发打卡点，可以直接关闭后使用模拟轨迹；也可以在地图上画一条路线。', 'warn');
+    } else {
+      routeHint('已获取 ' + state.plan.checkpoints.length + ' 个打卡点。在地图上点选路线，经过所有红点。', 'ok');
+    }
+  } catch (e) {
+    state.plan.checkpoints = [];
+    state.plan.route = [];
+    renderCheckpoints();
+    renderRoute();
+    routeHint('获取打卡点失败：' + (e.message || '网络错误') + '。打卡未开放时仍可在地图上手绘路线，完成后按绘制长度上传。', 'err');
+  } finally {
+    state.plan.loading = false;
+  }
+}
+
+async function openRoutePlanner() {
+  if (!state.user) return;
+  if (todayUploadCount() >= cfg().dayCntUp) {
+    await showDayLockModal();
+    return;
+  }
+  const campus = Number($('campus').value) || 1;
+  state.plan.active = true;
+  state.plan.campus = campus;
+  state.plan.checkpoints = [];
+  state.plan.route = [];
+  $('routeCampus').textContent = ' · ' + (CAMPUS[campus] || CAMPUS[1]).name;
+  $('routeView').classList.remove('hidden');
+  $('routeTargetStat').textContent = '目标 ' + fmtKm(limits().min) + '–' + fmtKm(limits().max) + ' km';
+  routeHint('正在准备地图…', '');
+  try {
+    await loadMapMeta();
+    initRouteMap(campus);
+    const cached = loadPlanCache();
+    if (cached && Number(cached.campus) === campus) {
+      state.plan.checkpoints = cached.checkpoints.map((c) => ({
+        id: c.id, lat: Number(c.lat), lng: Number(c.lng), isPass: !!c.isPass
+      })).filter((c) => Number.isFinite(c.lat) && Number.isFinite(c.lng));
+      state.plan.route = cached.route.map((p) => ({
+        lat: Number(p.lat), lng: Number(p.lng)
+      })).filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
+      renderCheckpoints();
+      renderRoute();
+      if (state.plan.checkpoints.length || state.plan.route.length) {
+        routeHint('已恢复上次规划的打卡点和路线，可继续修改。', 'ok');
+      } else {
+        await fetchPlanCheckpoints();
+      }
+    } else {
+      await fetchPlanCheckpoints();
+    }
+  } catch (e) {
+    routeHint('地图加载失败：' + (e.message || '未知错误'), 'err');
+  }
+  setTimeout(() => {
+    if (state.plan.map) state.plan.map.invalidateSize();
+  }, 80);
+}
+
+function clearPlannedRoute(notify) {
+  state.plannedRoute = null;
+  const kmInput = $('km');
+  if (kmInput) kmInput.readOnly = false;
+  state.previewCache = null;
+  const cached = loadPlanCache();
+  if (cached) {
+    cached.applied = false;
+    cached.meters = 0;
+    cached.checkpointCount = 0;
+    try { sessionStorage.setItem(LS_PLAN, JSON.stringify(cached)); } catch (e) { /* ignore */ }
+  }
+  updatePlanStatus();
+  updateTrackStatus();
+  drawPreviewSoon();
+  if (notify) toast('已清除手绘路线，恢复模拟轨迹');
+}
+
+function restorePlannedRoute() {
+  const cached = loadPlanCache();
+  if (!cached || !cached.applied || !Array.isArray(cached.route) || cached.route.length < 2) return;
+  const campus = Number(cached.campus) || Number($('campus').value) || 1;
+  if ($('campus').value !== String(campus)) $('campus').value = String(campus);
+  state.plan.campus = campus;
+  state.plan.checkpoints = (cached.checkpoints || []).map((c) => ({
+    id: c.id, lat: Number(c.lat), lng: Number(c.lng), isPass: !!c.isPass
+  })).filter((c) => Number.isFinite(c.lat) && Number.isFinite(c.lng));
+  state.plan.route = cached.route.map((p) => ({
+    lat: Number(p.lat), lng: Number(p.lng)
+  })).filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
+  if (state.plan.route.length < 2) return;
+  const required = requiredCheckpoints();
+  let snapped = cloneRoute(state.plan.route);
+  required.forEach((cp) => { snapped = insertCheckpoint(snapped, cp); });
+  const points = densifyRoute(snapped, 10);
+  const meters = Math.round(routeMeters(points));
+  if (meters < 2) return;
+  state.plannedRoute = {
+    points: points,
+    meters: meters,
+    campus: campus,
+    checkpointCount: required.length
+  };
+  $('km').value = (meters / 1000).toFixed(2);
+  $('km').readOnly = true;
+  updatePlanStatus();
+  onKmInput();
+  updateTrackStatus();
+  drawPreviewSoon();
+}
+
+let previewTimer = null;
+function drawPreviewSoon() {
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(drawPreview, 120);
+}
+
+function drawPreview() {
+  const canvas = $('mapCanvas');
+  if (!canvas) return;
+  const rect = canvas.getBoundingClientRect();
+  const w = Math.max(200, rect.width || 320);
+  const h = 150;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+  }
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#08131a';
+  ctx.fillRect(0, 0, w, h);
+
+  ctx.strokeStyle = 'rgba(57,255,136,0.07)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < w; x += 24) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+  }
+  for (let y = 0; y < h; y += 24) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+  }
+
+  const pts = ensurePreviewTrack();
+  if (!pts || pts.length < 2) {
+    ctx.fillStyle = 'rgba(230,255,240,0.38)';
+    ctx.font = '13px -apple-system, system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('填写公里数后生成轨迹预览', w / 2, h / 2);
+    return;
+  }
+
+  let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
+  for (let i = 0; i < pts.length; i += 1) {
+    const p = pts[i];
+    if (p.lat < minLat) minLat = p.lat;
+    if (p.lat > maxLat) maxLat = p.lat;
+    if (p.lng < minLng) minLng = p.lng;
+    if (p.lng > maxLng) maxLng = p.lng;
+  }
+  const pad = 18;
+  const spanLat = Math.max(maxLat - minLat, 1e-6);
+  const spanLng = Math.max(maxLng - minLng, 1e-6);
+  const scale = Math.min((w - pad * 2) / spanLng, (h - pad * 2) / spanLat);
+  const cx = (minLng + maxLng) / 2;
+  const cy = (minLat + maxLat) / 2;
+  const px = (p) => w / 2 + (p.lng - cx) * scale;
+  const py = (p) => h / 2 - (p.lat - cy) * scale;
+
+  ctx.save();
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = 'rgba(57,255,136,0.16)';
+  ctx.lineWidth = 7;
+  ctx.beginPath();
+  for (let i = 0; i < pts.length; i += 1) {
+    if (i === 0) ctx.moveTo(px(pts[i]), py(pts[i]));
+    else ctx.lineTo(px(pts[i]), py(pts[i]));
+  }
+  ctx.stroke();
+  ctx.strokeStyle = '#39ff88';
+  ctx.lineWidth = 2.1;
+  ctx.shadowColor = '#39ff88';
+  ctx.shadowBlur = 8;
+  ctx.beginPath();
+  for (let i = 0; i < pts.length; i += 1) {
+    if (i === 0) ctx.moveTo(px(pts[i]), py(pts[i]));
+    else ctx.lineTo(px(pts[i]), py(pts[i]));
+  }
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath(); ctx.arc(px(pts[0]), py(pts[0]), 3.4, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#ff5c7a';
+  ctx.beginPath(); ctx.arc(px(pts[pts.length - 1]), py(pts[pts.length - 1]), 3.4, 0, Math.PI * 2); ctx.fill();
+
+  const km = parseFloat($('km').value) || 0;
+  ctx.fillStyle = 'rgba(230,255,240,0.5)';
+  ctx.font = '11px -apple-system, system-ui, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(km.toFixed(2) + ' km · ' + pts.length + ' 点 · ' +
+    (state.useRecorded && state.recorded ? '真实轨迹' : '模拟轨迹'), 10, h - 10);
+}
+
+/* ============================== 表单逻辑 ============================== */
+
+function setDefaultForm() {
+  const l = limits();
+  const locked = todayUploadCount() >= cfg().dayCntUp;
+  const remain = Math.max(0, DAILY_LIMIT - todayMeters());
+  let km = locked ? 0 : Math.max(0, Math.min(remain, l.max)) / 1000;
+  const secs = Math.round(km * 330); // 默认 5:30 /km
+  $('km').value = km > 0 ? km.toFixed(2) : '0';
+  $('time').value = fmtDuration(secs);
+  $('pace').value = '5:30';
+  const end = defaultEndTime();
+  $('endTime').value = toLocalInput(end);
+  updateWindowBounds();
+  updateHint();
+  updateTrackStatus();
+  applyDayLock();
+  drawPreviewSoon();
+}
+function defaultEndTime() {
+  const c = cfg();
+  const now = new Date();
+  const begin = timeOnDate(now, c.dayTimeBegin);
+  const end = timeOnDate(now, c.dayTimeEnd);
+  if (now < begin) return begin;
+  if (now > end) return end;
+  return now;
+}
+function updateWindowBounds() {
+  const c = cfg();
+  const now = new Date();
+  const begin = timeOnDate(now, c.dayTimeBegin);
+  const end = timeOnDate(now, c.dayTimeEnd);
+  $('endTime').min = toLocalInput(begin);
+  $('endTime').max = toLocalInput(end);
+}
+
+function onKmInput() {
+  if (state.syncLock) return;
+  const km = parseFloat($('km').value) || 0;
+  const pace = parseDuration($('pace').value);
+  if (km > 0 && pace > 0) {
+    state.syncLock = true;
+    $('time').value = fmtDuration(Math.round(km * pace));
+    state.syncLock = false;
+  } else if (km > 0) {
+    const secs = parseDuration($('time').value);
+    if (secs > 0) {
+      state.syncLock = true;
+      $('pace').value = fmtPace(Math.round(secs / km));
+      state.syncLock = false;
+    }
+  }
+  updateHint();
+  updateTrackStatus();
+  drawPreviewSoon();
+}
+
+function onTimeInput() {
+  if (state.syncLock) return;
+  const km = parseFloat($('km').value) || 0;
+  const secs = parseDuration($('time').value);
+  if (km > 0 && secs > 0) {
+    state.syncLock = true;
+    $('pace').value = fmtPace(Math.round(secs / km));
+    state.syncLock = false;
+  }
+  updateHint();
+  drawPreviewSoon();
+}
+
+function onPaceInput() {
+  if (state.syncLock) return;
+  const km = parseFloat($('km').value) || 0;
+  const pace = parseDuration($('pace').value);
+  if (km > 0 && pace > 0) {
+    state.syncLock = true;
+    $('time').value = fmtDuration(Math.round(km * pace));
+    state.syncLock = false;
+  }
+  updateHint();
+  drawPreviewSoon();
+}
+
+function computeIssues() {
+  const c = cfg();
+  const l = limits();
+  const km = parseFloat($('km').value) || 0;
+  const secs = parseDuration($('time').value);
+  const dt = parseDT($('endTime').value);
+  const meters = Math.round(km * 1000);
+  const remain = Math.max(0, DAILY_LIMIT - todayMeters());
+  const count = todayUploadCount();
+  const issues = [];
+
+  if (!(km > 0)) issues.push({ level: 'error', text: '请输入公里数' });
+  if (!(secs > 0)) issues.push({ level: 'error', text: '请输入用时或配速' });
+  if (!dt) issues.push({ level: 'error', text: '请选择结束时间' });
+  if (count >= c.dayCntUp) issues.push({ level: 'error', text: '今天已上传 ' + count + ' 次，服务器每天只能上传 ' + c.dayCntUp + ' 次，明天再来' });
+  if (state.plannedRoute) {
+    if (Number(state.plannedRoute.campus) !== Number($('campus').value)) {
+      issues.push({ level: 'error', text: '校区已切换，请重新规划手绘路线' });
+    }
+    if (Math.abs(meters - state.plannedRoute.meters) > 20) {
+      issues.push({ level: 'error', text: '公里数与手绘路线不一致，请重新规划' });
+    }
+  }
+  if (meters > remain) issues.push({ level: 'error', text: '超出今日剩余额度 ' + fmtKm(remain) + ' 公里' });
+  if (meters > l.max) issues.push({ level: 'error', text: '单次最多 ' + fmtKm(l.max) + ' 公里' });
+  if (count >= c.dayCntUp) issues.push({ level: 'error', text: '今日已上传 ' + count + ' 次，服务器限制每天 ' + c.dayCntUp + ' 次' });
+  if (!(meters <= 0) && meters < l.min) issues.push({ level: 'warn', text: '低于' + (isGirl() ? '女生' : '男生') + '最低 ' + fmtKm(l.min) + ' 公里，服务器可能拒绝' });
+  if (secs > 0 && secs < c.minTime) issues.push({ level: 'warn', text: '用时少于 ' + Math.round(c.minTime / 60) + ' 分钟，服务器可能拒绝' });
+  if (secs > 0 && km > 0) {
+    const pace = secs / km;
+    if (pace < l.maxSpeed || pace > l.minSpeed) {
+      issues.push({ level: 'warn', text: '配速 ' + fmtPace(Math.round(pace)) + ' 超出 ' + fmtPace(l.maxSpeed) + '–' + fmtPace(l.minSpeed) + ' 范围，服务器可能拒绝' });
+    }
+  }
+  if (dt) {
+    if (!dtInWindow(dt, c)) {
+      issues.push({ level: 'warn', text: '结束时间不在 ' + c.dayTimeBegin.slice(0, 5) + '–' + c.dayTimeEnd.slice(0, 5) + ' 时段内' });
+    }
+    if (c.dateBegin && ymdDash(dt) < c.dateBegin) {
+      issues.push({ level: 'warn', text: '结束时间早于学期开始日期 ' + c.dateBegin });
+    }
+    if (c.dateEnd && ymdDash(dt) > c.dateEnd) {
+      issues.push({ level: 'warn', text: '结束时间晚于学期结束日期 ' + c.dateEnd });
+    }
+    if (dt.getTime() > Date.now() + 60000) {
+      issues.push({ level: 'warn', text: '结束时间晚于当前时间，服务器可能拒绝' });
+    }
+    if (secs > 0) {
+      const start = new Date(dt.getTime() - secs * 1000);
+      if (start < timeOnDate(dt, c.dayTimeBegin)) {
+        issues.push({ level: 'warn', text: '开始时间 ' + fmtDT(start).slice(11, 16) + ' 早于 ' + c.dayTimeBegin.slice(0, 5) + '，建议把结束时间调晚一些' });
+      }
+      if (c.dateBegin && ymdDash(start) < c.dateBegin) {
+        issues.push({ level: 'warn', text: '开始时间早于学期开始日期 ' + c.dateBegin });
+      }
+    }
+  }
+  if (!nowInWindow(c)) {
+    issues.push({ level: 'warn', text: '当前不在服务器跑步时段 ' + c.dayTimeBegin.slice(0, 5) + '–' + c.dayTimeEnd.slice(0, 5) + '，现在上传会被拒绝' });
+  }
+  if (state.useRecorded && state.recorded) {
+    if (state.recorded.distance < meters * 0.5 && meters - state.recorded.distance > 500) {
+      issues.push({ level: 'warn', text: '真实轨迹只有 ' + fmtKm(state.recorded.distance) + ' 公里，远小于填写的 ' + fmtKm(meters) + ' 公里' });
+    }
+  }
+  return { issues: issues, km: km, secs: secs, dt: dt, meters: meters };
+}
+
+/* ============================== 定位 / 记录 ============================== */
+
+function locate() {
+  if (!navigator.geolocation) { toast('当前浏览器不支持定位'); return; }
+  if (location.protocol === 'file:') { toast('本地文件模式无法定位，请用 HTTPS 部署后再试'); return; }
+  if (!window.isSecureContext) { toast('定位需要 HTTPS 页面，请部署到 HTTPS 后再试'); return; }
+  toast('正在定位…');
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+    state.geoCenter = { lat: lat, lng: lng };
+    state.previewCache = null;
+    try {
+      const r = await api('/api/semester/getNearestCampus', { pointLat: lat, pointLong: lng });
+      if (apiOk(r) && r.data) {
+        const id = String(r.data.id);
+        if (CAMPUS[id]) $('campus').value = id;
+        state.campusName = r.data.campusName || (CAMPUS[id] ? CAMPUS[id].name : '');
+        toast('定位成功：' + (state.campusName || '已获取当前位置'));
+      } else {
+        toast('定位成功，已用当前位置生成轨迹');
+      }
+    } catch (e) {
+      toast('定位成功，但校区识别失败');
+    }
+    updateHint();
+    updateTrackStatus();
+    drawPreviewSoon();
+  }, (err) => {
+    toast('定位失败：' + (err && err.message ? err.message : '请检查定位权限'));
+  }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 30000 });
+}
+
+function toggleRecord() {
+  if (state.recording) { stopRecord(); return; }
+  if (!navigator.geolocation) { toast('当前浏览器不支持定位'); return; }
+  if (location.protocol === 'file:') { toast('本地文件模式无法记录轨迹，请用 HTTPS 部署'); return; }
+  if (!window.isSecureContext) { toast('记录轨迹需要 HTTPS 页面'); return; }
+
+  state.recordPoints = [];
+  state.recordDistance = 0;
+  state.recordStart = Date.now();
+  state.recording = true;
+  $('btnRecord').textContent = '停止记录';
+  $('recordLive').textContent = '记录中…';
+  updateTrackStatus();
+  state.watchId = navigator.geolocation.watchPosition(onPosition, onPositionError, {
+    enableHighAccuracy: true,
+    maximumAge: 0,
+    timeout: 20000
+  });
+  toast('开始记录轨迹，边走边记录');
+}
+
+function onPosition(pos) {
+  if (!state.recording) return;
+  const c = pos.coords;
+  if (c.accuracy && c.accuracy > 80) return;
+  const p = { lat: c.latitude, lng: c.longitude };
+  const pts = state.recordPoints;
+  if (pts.length) {
+    const d = haversine(pts[pts.length - 1], p);
+    if (d < 3) return;
+    state.recordDistance += d;
+  }
+  if (pts.length >= 1200) return;
+  pts.push(p);
+  if (!state.geoCenter) {
+    state.geoCenter = { lat: p.lat, lng: p.lng };
+    state.previewCache = null;
+  }
+  $('recordLive').textContent = '记录中… ' + fmtKm(state.recordDistance) + ' 公里 · ' +
+    state.recordPoints.length + ' 个点 · ' +
+    fmtDuration(Math.round((Date.now() - state.recordStart) / 1000));
+  updateTrackStatus();
+}
+
+function onPositionError(err) {
+  if (!state.recording) return;
+  toast('定位异常：' + (err && err.message ? err.message : '请检查权限'));
+  if (err && err.code === 1) stopRecord();
+}
+
+function stopRecord() {
+  state.recording = false;
+  if (state.watchId != null) {
+    navigator.geolocation.clearWatch(state.watchId);
+    state.watchId = null;
+  }
+  $('btnRecord').textContent = '记录真实轨迹';
+  const duration = Math.max(0, Math.round((Date.now() - state.recordStart) / 1000));
+  if (state.recordPoints.length >= 2) {
+    state.recorded = {
+      points: state.recordPoints.slice(),
+      distance: state.recordDistance,
+      duration: duration
+    };
+    state.useRecorded = false;
+    $('useRecorded').checked = false;
+    $('useRecorded').disabled = false;
+    $('btnFillRecorded').disabled = false;
+    $('recordLive').textContent = '已记录 ' + fmtKm(state.recorded.distance) + ' 公里 · ' +
+      fmtDuration(duration) + ' · ' + state.recorded.points.length + ' 个点';
+    toast('轨迹已保存，可在下方勾选使用');
+  } else {
+    $('recordLive').textContent = '轨迹点太少，已丢弃';
+    toast('轨迹点太少，上传时将使用模拟轨迹');
+  }
+  state.previewCache = null;
+  updateTrackStatus();
+  drawPreviewSoon();
+}
+
+function fillRecorded() {
+  if (!state.recorded) return;
+  if (state.plannedRoute) {
+    toast('已使用手绘路线，先清除手绘路线再填入真实轨迹');
+    return;
+  }
+  $('km').value = (state.recorded.distance / 1000).toFixed(2);
+  const secs = state.recorded.duration > 0
+    ? state.recorded.duration
+    : Math.round(state.recorded.distance * 0.33);
+  $('time').value = fmtDuration(secs);
+  onTimeInput();
+  toast('已填入记录数据');
+}
+
+/* ============================== 登录 / 上传 ============================== */
+
+function setLoginBusy(b) {
+  const btn = $('btnLogin');
+  btn.disabled = b;
+  btn.textContent = b ? '登录中…' : '登录';
+}
+function applyDayLock() {
+  const btn = $('btnUpload');
+  const lock = $('dayLock');
+  if (!btn) return;
+  const c = cfg();
+  const count = todayUploadCount();
+  const locked = count >= c.dayCntUp;
+  const startBtn = $('btnStartRun');
+  if (startBtn) {
+    startBtn.disabled = locked;
+    startBtn.classList.toggle('locked', locked);
+    startBtn.textContent = locked ? '今日已上传，明天再来' : '开始跑步 · 获取打卡点';
+  }
+  if (lock) {
+    lock.classList.toggle('hidden', !locked);
+    if (locked) {
+      lock.innerHTML = '<b>今日已上传 ' + count + ' 次，今天不能再传</b>' +
+        '<span>服务器每天只能上传 ' + c.dayCntUp + ' 次，上传按钮已锁定，明天自动恢复。</span>';
+    }
+  }
+  if (state.busy) return;
+  btn.classList.toggle('locked', locked);
+  if (locked) {
+    btn.disabled = true;
+    btn.textContent = '今日已上传，明天再来';
+  } else {
+    btn.disabled = false;
+    btn.textContent = '上传本次';
+  }
+}
+function setUploadBusy(b) {
+  const btn = $('btnUpload');
+  if (b) {
+    btn.disabled = true;
+    btn.classList.remove('locked');
+    btn.textContent = '上传中…';
+    return;
+  }
+  applyDayLock();
+}
+async function showDayLockModal() {
+  const c = cfg();
+  const count = todayUploadCount();
+  await modal('今日已上传', [
+    '服务器每天只能上传 ' + c.dayCntUp + ' 次，今天已经上传 ' + count + ' 次了。',
+    '上传按钮已锁定，明天会自动恢复。',
+    '今日已上传里程：' + fmtKm(todayMeters()) + ' 公里。'
+  ], '知道了');
+}
+async function maybeShowDayLockModal() {
+  if (!state.user) return;
+  if (todayUploadCount() < cfg().dayCntUp) return;
+  const key = 'dickontop_daylock_' + ymdDash(new Date());
+  if (sessionStorage.getItem(key) === '1') return;
+  sessionStorage.setItem(key, '1');
+  await showDayLockModal();
+}
+
+async function doLogin() {
+  const account = $('account').value.trim();
+  const password = $('password').value;
+  const msg = $('loginMsg');
+  msg.className = 'msg';
+  msg.textContent = '';
+  if (!account) { msg.className = 'msg error'; msg.textContent = '请输入学号'; return; }
+  if (!password) { msg.className = 'msg error'; msg.textContent = '请输入密码'; return; }
+
+  setLoginBusy(true);
+  try {
+    const r = await api('/api/user/login', { userCode: account, userCardNo: password });
+    if (!apiOk(r)) throw new Error(apiMsg(r));
+    if (!r.data || !r.data.id) throw new Error('登录返回数据异常');
+    state.user = r.data;
+    state.formReady = false;
+    state.records = [];
+    state.cfg = null;
+    state.termKm = null;
+    state.runCnt = null;
+    localStorage.setItem(LS_USER, JSON.stringify(state.user));
+    localStorage.setItem(LS_ACCOUNT, account);
+    $('password').value = '';
+    showApp();
+    await refreshAll();
+    setDefaultForm();
+    state.formReady = true;
+    restorePlannedRoute();
+    toast('登录成功');
+    await maybeShowDayLockModal();
+  } catch (e) {
+    msg.className = 'msg error';
+    msg.textContent = e.message || '登录失败';
+  } finally {
+    setLoginBusy(false);
+  }
+}
+
+async function doUpload() {
+  if (state.busy) return;
+  if (!state.user) return;
+  if (todayUploadCount() >= cfg().dayCntUp) {
+    await showDayLockModal();
+    return;
+  }
+  const data = computeIssues();
+  const errors = data.issues.filter((i) => i.level === 'error');
+  if (errors.length) {
+    toast(errors[0].text);
+    return;
+  }
+  const warns = data.issues.filter((i) => i.level === 'warn');
+  if (warns.length) {
+    const ok = await modal('上传前提示', warns.map((w) => w.text), '继续上传', '返回修改');
+    if (!ok) return;
+  }
+
+  state.busy = true;
+  setUploadBusy(true);
+  try {
+    let fresh;
+    try {
+      fresh = await api('/api/run/queryRunList', { pageNo: 1, pageSize: 20, userId: state.user.id });
+    } catch (e) {
+      const err = new Error('无法确认今日上传次数，为避免重复上传已取消：' + (e.message || '网络错误'));
+      err.cancelled = true;
+      throw err;
+    }
+    if (!apiOk(fresh)) {
+      const err = new Error('无法确认今日上传次数（' + apiMsg(fresh) + '），为避免重复上传已取消');
+      err.cancelled = true;
+      throw err;
+    }
+    state.records = Array.isArray(fresh.data) ? fresh.data : [];
+    render();
+    const freshCount = todayUploadCount();
+    if (freshCount >= cfg().dayCntUp) {
+      const err = new Error('今天已经上传 ' + freshCount + ' 次，服务器每天只能上传 ' +
+        cfg().dayCntUp + ' 次，明天再来');
+      err.dailyLock = true;
+      throw err;
+    }
+
+    const allow = await api('/api/run/checkRunAllow', { userId: state.user.id });
+    if (!apiOk(allow)) throw new Error('服务器拒绝：' + apiMsg(allow));
+
+    const points = ensurePreviewTrack();
+    if (!points || points.length < 2) throw new Error('轨迹生成失败，请检查公里数');
+
+    const end = data.dt;
+    const start = new Date(end.getTime() - data.secs * 1000);
+    const body = {
+      beginTime: fmtDT(start),
+      campus: Number($('campus').value),
+      endTime: fmtDT(end),
+      markList: markListJson(points),
+      totalLength: state.plannedRoute ? state.plannedRoute.meters : data.meters,
+      totalTime: data.secs,
+      userId: state.user.id
+    };
+    const r = await api('/api/run/addRunInfo', body);
+    if (!apiOk(r)) throw new Error(apiMsg(r));
+    markUploadedToday();
+
+    await modal('上传成功', [
+      '里程：' + data.km.toFixed(2) + ' 公里',
+      '用时：' + fmtDuration(data.secs),
+      '配速：' + fmtPace(Math.round(data.secs / (data.km || 1))) + ' /公里',
+      '轨迹点：' + points.length + ' 个',
+      '服务器已接收。今天的 1 次上传机会已用完，明天再来。'
+    ], '知道了');
+
+    clearPlanCache();
+    state.plannedRoute = null;
+    if ($('km')) $('km').readOnly = false;
+    updatePlanStatus();
+    state.trackSeed = Math.floor(Math.random() * 1000000000);
+    state.previewCache = null;
+    await refreshAll();
+    setDefaultForm();
+  } catch (e) {
+    if (e && e.dailyLock) {
+      render();
+      await modal('今日已上传', [e.message, '上传按钮已锁定，明天再来。'], '知道了');
+    } else if (e && e.cancelled) {
+      await modal('上传已取消', [e.message], '知道了');
+    } else {
+      await modal('上传失败', [e.message || '未知错误', '如果提示不在时段或次数超限，请按提示调整后再试。'], '知道了');
+    }
+  } finally {
+    state.busy = false;
+    setUploadBusy(false);
+  }
+}
+
+async function testServer() {
+  const msg = $('loginMsg');
+  msg.className = 'msg';
+  msg.textContent = '正在连接…';
+  try {
+    const r = await api('/api/semester/getCurrSemester');
+    if (apiOk(r) && r.data) {
+      msg.className = 'msg ok';
+      msg.textContent = '连接正常：' + (r.data.semesterName || '当前学期') +
+        '（' + (r.data.dateBegin || '') + ' ~ ' + (r.data.dateEnd || '') + '）';
+    } else {
+      msg.className = 'msg error';
+      msg.textContent = '服务器返回：' + apiMsg(r);
+    }
+  } catch (e) {
+    msg.className = 'msg error';
+    msg.textContent = e.message;
+  }
+}
+
+async function doLogout() {
+  const ok = await modal('退出登录', ['将清除本机保存的账号信息和表单状态。'], '退出', '取消');
+  if (!ok) return;
+  if (state.recording) stopRecord();
+  localStorage.removeItem(LS_USER);
+  localStorage.removeItem(LS_UPLOADED);
+  clearPlanCache();
+  closeRoutePlanner();
+  if (state.plan.map) {
+    try { state.plan.map.remove(); } catch (e) { /* ignore */ }
+    state.plan.map = null;
+  }
+  state.plan.checkpoints = [];
+  state.plan.route = [];
+  state.plannedRoute = null;
+  $('km').readOnly = false;
+  updatePlanStatus();
+  state.user = null;
+  state.cfg = null;
+  state.records = [];
+  state.termKm = null;
+  state.runCnt = null;
+  state.recorded = null;
+  state.useRecorded = false;
+  state.formReady = false;
+  $('userChip').textContent = '';
+  $('password').value = '';
+  $('recordLive').textContent = '';
+  $('useRecorded').checked = false;
+  $('useRecorded').disabled = true;
+  $('btnFillRecorded').disabled = true;
+  showLogin();
+  toast('已退出登录');
+}
+
+function showLogin() {
+  $('loginView').classList.remove('hidden');
+  $('appView').classList.add('hidden');
+}
+function showApp() {
+  $('loginView').classList.add('hidden');
+  $('appView').classList.remove('hidden');
+  render();
+  drawPreviewSoon();
+}
+
+/* ============================== 弹窗 / 提示 ============================== */
+
+let toastTimer = null;
+function toast(text) {
+  const el = $('toast');
+  el.textContent = text;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+function modal(title, lines, okText, cancelText) {
+  return new Promise((resolve) => {
+    const back = $('modal');
+    $('modalTitle').textContent = title;
+    $('modalBody').innerHTML = (lines || []).map((l) => '<p>' + esc(l) + '</p>').join('');
+    const ok = $('modalOk');
+    const cancel = $('modalCancel');
+    ok.disabled = false;
+    ok.textContent = okText || '确定';
+    if (cancelText) {
+      cancel.textContent = cancelText;
+      cancel.classList.remove('hidden');
+    } else {
+      cancel.classList.add('hidden');
+    }
+    back.classList.remove('hidden');
+
+    function close(val) {
+      back.classList.add('hidden');
+      ok.onclick = null;
+      cancel.onclick = null;
+      back.onclick = null;
+      resolve(val);
+    }
+    ok.onclick = () => close(true);
+    cancel.onclick = () => close(false);
+    back.onclick = (e) => { if (e.target === back && cancelText) close(false); };
+  });
+}
+
+function showDisclaimer() {
+  if (sessionStorage.getItem(LS_DISCLAIMER) === '1') return Promise.resolve();
+  return new Promise((resolve) => {
+    const back = $('modal');
+    $('modalTitle').textContent = '免责声明';
+    $('modalBody').innerHTML = [
+      '本软件仅供学习、技术研究与交流参考，请勿用于任何非法用途。',
+      '使用本软件可能违反学校体育管理规定，产生的一切后果由使用者自行承担。',
+      '继续使用即表示你已阅读并同意以上内容。'
+    ].map((l) => '<p>' + esc(l) + '</p>').join('');
+    const ok = $('modalOk');
+    const cancel = $('modalCancel');
+    cancel.classList.add('hidden');
+    cancel.onclick = null;
+    back.classList.remove('hidden');
+    back.onclick = null;
+
+    let left = 5;
+    ok.disabled = true;
+    ok.textContent = '请阅读 ' + left + ' 秒';
+    const timer = setInterval(() => {
+      left -= 1;
+      if (left > 0) {
+        ok.textContent = '请阅读 ' + left + ' 秒';
+      } else {
+        clearInterval(timer);
+        ok.disabled = false;
+        ok.textContent = '我已阅读并同意';
+      }
+    }, 1000);
+    ok.onclick = () => {
+      if (ok.disabled) return;
+      clearInterval(timer);
+      sessionStorage.setItem(LS_DISCLAIMER, '1');
+      back.classList.add('hidden');
+      ok.onclick = null;
+      resolve();
+    };
+  });
+}
+
+function showWelcome() {
+  if (sessionStorage.getItem(LS_WELCOME) === '1') return Promise.resolve(false);
+  sessionStorage.setItem(LS_WELCOME, '1');
+  return modal('Who is Dickman? Dick On Top', [
+    '使用方法：',
+    '1. 用学号和密码登录；',
+    '2. 选择公里数，填写用时或配速，三者自动换算；',
+    '3. 点“开始跑步”可获取本次随机打卡点，在校园地图上点选路线，必须经过所有打卡点；',
+    '4. 每天只能上传 1 次（服务器硬性限制），成功一次后按钮锁定到明天；',
+    '5. 单次上限 6 公里，配速需在 3:00–9:00 /公里；',
+    '6. 不规划路线时仍可使用默认模拟轨迹或记录真实 GPS 轨迹；',
+    '7. 上传时段 05:30–22:30，请在时段内操作；',
+    '8. 网页版没有更新检测，可以添加到 iPhone 主屏幕。'
+  ], '开始使用').then(() => true);
+}
+
+/* ============================== 事件绑定 / 初始化 ============================== */
+
+function bindEvents() {
+  $('btnLogin').addEventListener('click', doLogin);
+  $('btnTest').addEventListener('click', testServer);
+  $('password').addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
+  $('account').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('password').focus(); });
+
+  $('km').addEventListener('input', onKmInput);
+  $('time').addEventListener('input', onTimeInput);
+  $('pace').addEventListener('input', onPaceInput);
+  $('endTime').addEventListener('change', updateHint);
+  $('campus').addEventListener('change', () => {
+    state.previewCache = null;
+    if (state.plannedRoute) {
+      clearPlannedRoute(false);
+      clearPlanCache();
+      state.plan.checkpoints = [];
+      state.plan.route = [];
+      toast('校区已切换，手绘路线已清除');
+    }
+    updateHint();
+    updateTrackStatus();
+    drawPreviewSoon();
+  });
+
+  document.querySelectorAll('.quick button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if (state.plannedRoute) {
+        toast('已使用手绘路线，先点“清除手绘路线”再改公里数');
+        return;
+      }
+      const v = btn.getAttribute('data-km');
+      const l = limits();
+      const remain = Math.max(0, DAILY_LIMIT - todayMeters());
+      let km;
+      if (v === 'fill') km = Math.min(remain, l.max) / 1000;
+      else km = parseFloat(v) || 0;
+      $('km').value = km.toFixed(2);
+      onKmInput();
+      toast('已填入 ' + km.toFixed(2) + ' 公里');
+    });
+  });
+
+  $('btnStartRun').addEventListener('click', openRoutePlanner);
+  $('btnClearPlan').addEventListener('click', () => clearPlannedRoute(true));
+  $('routeClose').addEventListener('click', closeRoutePlanner);
+  $('routeUndo').addEventListener('click', undoRoutePoint);
+  $('routeClear').addEventListener('click', clearRoutePoints);
+  $('routeAuto').addEventListener('click', autoConnectCheckpoints);
+  $('routeDone').addEventListener('click', finishPlan);
+
+  $('btnGeo').addEventListener('click', locate);
+  $('btnRecord').addEventListener('click', toggleRecord);
+  $('btnFillRecorded').addEventListener('click', fillRecorded);
+  $('useRecorded').addEventListener('change', (e) => {
+    state.useRecorded = !!e.target.checked;
+    state.previewCache = null;
+    updateTrackStatus();
+    drawPreviewSoon();
+  });
+
+  $('btnUpload').addEventListener('click', doUpload);
+  $('btnLogout').addEventListener('click', doLogout);
+
+  window.addEventListener('resize', drawPreviewSoon);
+  window.addEventListener('orientationchange', drawPreviewSoon);
+}
+
+function registerSW() {
+  if (!('serviceWorker' in navigator)) return;
+  if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') return;
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+async function init() {
+  bindEvents();
+
+  const lastAccount = localStorage.getItem(LS_ACCOUNT);
+  if (lastAccount) $('account').value = lastAccount;
+
+  const saved = localStorage.getItem(LS_USER);
+  if (saved) {
+    try { state.user = JSON.parse(saved); } catch (e) { state.user = null; }
+  }
+
+  await showDisclaimer();
+
+  if (state.user && state.user.id) {
+    showApp();
+    try {
+      await refreshAll();
+      if (!state.formReady) { setDefaultForm(); state.formReady = true; }
+      restorePlannedRoute();
+    } catch (e) {
+      setBanner(e.message || '数据加载失败');
+    }
+  } else {
+    showLogin();
+  }
+
+  await showWelcome();
+  await maybeShowDayLockModal();
+  registerSW();
+}
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
