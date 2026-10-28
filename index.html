@@ -1588,6 +1588,7 @@ function finishPlan() {
     return;
   }
   state.plan.route = snapped;
+  state.plan.strokes = snapped.length ? [0] : [];
   state.plannedRoute = {
     points: points,
     meters: meters,
