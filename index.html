@@ -218,7 +218,15 @@
   }
   .route-head b { font-size: 16px; }
   .route-head span { font-size: 11px; color: var(--muted); margin-left: 8px; }
-  #routeMap { flex: 1; min-height: 0; background: #0a1a14; z-index: 0; }
+  .route-map-wrap { position: relative; flex: 1; min-height: 0; }
+  #routeMap { position: absolute; inset: 0; background: #0a1a14; z-index: 0; touch-action: none; }
+  #routePen {
+    position: absolute; right: 10px; bottom: 12px; z-index: 900;
+    padding: 8px 12px; border-radius: 999px; font-size: 12px; color: #d6f0e0;
+    background: rgba(5,11,14,0.82); border: 1px solid rgba(214,240,224,0.35);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.45);
+  }
+  #routePen.on { color: #06110c; background: var(--neon); border-color: var(--neon); font-weight: 700; }
   .route-panel {
     padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
     border-top: 1px solid rgba(255,255,255,0.08); background: #08131a;
@@ -445,7 +453,10 @@
     <div><b>路线规划</b><span id="routeCampus"></span></div>
     <button id="routeClose" class="ghost" type="button">关闭</button>
   </div>
-  <div id="routeMap"></div>
+  <div class="route-map-wrap">
+    <div id="routeMap"></div>
+    <button id="routePen" class="on" type="button">画笔：开</button>
+  </div>
   <div class="route-panel">
     <div class="route-stats">
       <span id="routeCpStat">打卡点 <b>0/0</b></span>
@@ -511,6 +522,14 @@ const state = {
     campus: 0,
     checkpoints: [],
     route: [],
+    strokes: [],          // 每一笔路线在 route 中的起始下标，撤销时整笔删除
+    pen: true,            // true = 手指画线；false = 拖动/缩放地图
+    drawing: false,
+    strokeStarted: false,
+    pointers: new Set(),
+    lastX: 0,
+    lastY: 0,
+    lastPaint: 0,
     map: null,
     imageLayer: null,
     routeLayer: null,
@@ -1091,6 +1110,11 @@ function loadPlanCache() {
     if (!p || !state.user || p.userId !== state.user.id || p.date !== ymdDash(new Date())) return null;
     if (!Array.isArray(p.checkpoints)) p.checkpoints = [];
     if (!Array.isArray(p.route)) p.route = [];
+    if (!Array.isArray(p.strokes)) p.strokes = [];
+    p.strokes = p.strokes.map((n) => Number(n))
+      .filter((n) => Number.isInteger(n) && n >= 0 && n < p.route.length)
+      .sort((a, b) => a - b);
+    if (p.route.length && !p.strokes.length) p.strokes = [0];
     return p;
   } catch (e) {
     return null;
@@ -1107,6 +1131,7 @@ function savePlanCache() {
       id: c.id, lat: c.lat, lng: c.lng, isPass: !!c.isPass
     })),
     route: state.plan.route.map((p) => ({ lat: p.lat, lng: p.lng })),
+    strokes: state.plan.strokes.slice(),
     applied: !!state.plannedRoute,
     meters: state.plannedRoute ? state.plannedRoute.meters : 0,
     checkpointCount: state.plannedRoute ? (state.plannedRoute.checkpointCount || 0) : 0
@@ -1214,6 +1239,7 @@ function makeCpIcon(n, ok, isPass) {
 function initRouteMap(campus) {
   if (state.plan.map && state.plan.campus === campus) {
     state.plan.map.invalidateSize();
+    setPen(state.plan.pen);
     return;
   }
   if (state.plan.map) {
@@ -1244,11 +1270,119 @@ function initRouteMap(campus) {
   state.plan.routeLayer = L.polyline([], {
     color: '#39ff88', weight: 5, opacity: 0.95, lineJoin: 'round', lineCap: 'round'
   }).addTo(map);
-  map.on('click', (e) => {
-    if (!state.plan.active || state.plan.loading) return;
-    state.plan.route.push({ lat: e.latlng.lat, lng: e.latlng.lng });
-    renderRoute();
-  });
+  state.plan.pointers.clear();
+  state.plan.drawing = false;
+  state.plan.strokeStarted = false;
+  setPen(state.plan.pen);
+}
+
+function setPen(on) {
+  state.plan.pen = !!on;
+  state.plan.drawing = false;
+  state.plan.strokeStarted = false;
+  const btn = $('routePen');
+  if (btn) {
+    btn.textContent = state.plan.pen ? '画笔：开' : '移动地图';
+    btn.classList.toggle('on', state.plan.pen);
+  }
+  const map = state.plan.map;
+  if (!map) return;
+  if (state.plan.pen) {
+    map.dragging.disable();
+    map.doubleClickZoom.disable();
+    map.boxZoom.disable();
+    if (map.tap) map.tap.disable();
+  } else {
+    map.dragging.enable();
+    map.doubleClickZoom.enable();
+    map.boxZoom.enable();
+    if (map.tap) map.tap.enable();
+  }
+}
+
+function mapPointInBounds(latlng) {
+  const meta = state.mapMeta && state.mapMeta.campuses[String(state.plan.campus)];
+  if (!meta) return true;
+  return latlng.lat >= meta.south && latlng.lat <= meta.north &&
+    latlng.lng >= meta.west && latlng.lng <= meta.east;
+}
+
+function appendPlanPoint(e) {
+  const map = state.plan.map;
+  if (!map) return false;
+  const latlng = map.mouseEventToLatLng(e);
+  if (!mapPointInBounds(latlng)) return false;
+  if (!state.plan.strokeStarted) {
+    state.plan.strokes.push(state.plan.route.length);
+    state.plan.strokeStarted = true;
+  }
+  state.plan.route.push({ lat: latlng.lat, lng: latlng.lng });
+  return true;
+}
+
+function renderRouteThrottled() {
+  const now = Date.now();
+  if (now - state.plan.lastPaint < 90) return;
+  state.plan.lastPaint = now;
+  renderRoute();
+}
+
+function endPlanStroke() {
+  state.plan.drawing = false;
+  const started = state.plan.strokeStarted;
+  state.plan.strokeStarted = false;
+  state.plan.pointers.clear();
+  if (started) renderRoute();
+}
+
+function bindRouteDrawing() {
+  const box = $('routeMap');
+  if (!box) return;
+  box.addEventListener('pointerdown', (e) => {
+    if (!state.plan.pen || !state.plan.active || state.plan.loading || !state.plan.map) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    if (e.target && e.target.closest && e.target.closest('.leaflet-control')) return;
+    if (state.plan.pointers.has(e.pointerId)) return;
+    state.plan.pointers.add(e.pointerId);
+    if (state.plan.pointers.size > 1) {
+      state.plan.drawing = false;
+      if (state.plan.strokeStarted) {
+        state.plan.strokeStarted = false;
+        renderRoute();
+      }
+      return;
+    }
+    state.plan.drawing = true;
+    state.plan.strokeStarted = false;
+    state.plan.lastX = e.clientX;
+    state.plan.lastY = e.clientY;
+    if (appendPlanPoint(e)) renderRoute();
+    try { box.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    e.preventDefault();
+  }, { passive: false });
+
+  box.addEventListener('pointermove', (e) => {
+    if (!state.plan.drawing || !state.plan.pointers.has(e.pointerId)) return;
+    if (state.plan.pointers.size !== 1) return;
+    const dx = e.clientX - state.plan.lastX;
+    const dy = e.clientY - state.plan.lastY;
+    if (dx * dx + dy * dy < 9) return;
+    state.plan.lastX = e.clientX;
+    state.plan.lastY = e.clientY;
+    if (appendPlanPoint(e)) renderRouteThrottled();
+    e.preventDefault();
+  }, { passive: false });
+
+  const finish = (e) => {
+    if (!state.plan.pointers.has(e.pointerId)) return;
+    state.plan.pointers.delete(e.pointerId);
+    try { box.releasePointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    if (state.plan.pointers.size === 0 && state.plan.drawing) {
+      endPlanStroke();
+    }
+  };
+  box.addEventListener('pointerup', finish);
+  box.addEventListener('pointercancel', finish);
 }
 
 function renderCheckpoints() {
@@ -1323,7 +1457,7 @@ function renderRoute() {
   $('routeTargetStat').textContent = target;
 
   if (!route.length) {
-    routeHint('在地图上依次点选路线拐点；红点是必须经过的打卡点，圆圈为 20 米判定范围。', '');
+    routeHint('按住地图拖动即可手绘路线；红点是必须经过的打卡点，圆圈为 20 米判定范围。右下角可切换「画笔 / 移动地图」。', '');
   } else if (required.length && covered < required.length) {
     routeHint('还有 ' + (required.length - covered) + ' 个打卡点未经过，请把路线画到红色圆点附近。', 'warn');
   } else if (meters < l.min) {
@@ -1367,18 +1501,25 @@ function autoConnectCheckpoints() {
   }
   order.push(order[0]);
   state.plan.route = order.map((p) => ({ lat: p.lat, lng: p.lng }));
+  state.plan.strokes = [0];
   renderRoute();
-  routeHint('已按打卡点自动连线并闭合回路，可继续点地图微调；直线可能穿过建筑，建议按道路调整。', 'warn');
+  routeHint('已按打卡点自动连线并闭合回路，可继续手绘微调；直线可能穿过建筑，建议按道路调整。', 'warn');
 }
 
 function undoRoutePoint() {
   if (!state.plan.route.length) return;
-  state.plan.route.pop();
+  if (state.plan.strokes.length) {
+    const start = state.plan.strokes.pop();
+    state.plan.route.length = Math.max(0, Math.min(start, state.plan.route.length));
+  } else {
+    state.plan.route = [];
+  }
   renderRoute();
 }
 
 function clearRoutePoints() {
   state.plan.route = [];
+  state.plan.strokes = [];
   renderRoute();
 }
 
@@ -1423,7 +1564,7 @@ function densifyRoute(route, step) {
 function finishPlan() {
   if (!state.plan.map) return;
   if (state.plan.route.length < 2) {
-    routeHint('至少需要在地图上点两个拐点，才能生成路线。', 'err');
+    routeHint('请先按住地图拖动，画出至少一段路线。', 'err');
     return;
   }
   const required = requiredCheckpoints();
@@ -1510,17 +1651,19 @@ async function fetchPlanCheckpoints() {
       isPass: !!p.isPass
     })).filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
     state.plan.route = [];
+    state.plan.strokes = [];
     renderCheckpoints();
     renderRoute();
     savePlanCache();
     if (!state.plan.checkpoints.length) {
       routeHint('服务器本次没有下发打卡点，可以直接关闭后使用模拟轨迹；也可以在地图上画一条路线。', 'warn');
     } else {
-      routeHint('已获取 ' + state.plan.checkpoints.length + ' 个打卡点。在地图上点选路线，经过所有红点。', 'ok');
+      routeHint('已获取 ' + state.plan.checkpoints.length + ' 个打卡点。按住地图拖动画线，让线经过所有红点。', 'ok');
     }
   } catch (e) {
     state.plan.checkpoints = [];
     state.plan.route = [];
+    state.plan.strokes = [];
     renderCheckpoints();
     renderRoute();
     routeHint('获取打卡点失败：' + (e.message || '网络错误') + '。打卡未开放时仍可在地图上手绘路线，完成后按绘制长度上传。', 'err');
@@ -1540,6 +1683,10 @@ async function openRoutePlanner() {
   state.plan.campus = campus;
   state.plan.checkpoints = [];
   state.plan.route = [];
+  state.plan.strokes = [];
+  state.plan.drawing = false;
+  state.plan.strokeStarted = false;
+  state.plan.pointers.clear();
   $('routeCampus').textContent = ' · ' + (CAMPUS[campus] || CAMPUS[1]).name;
   $('routeView').classList.remove('hidden');
   $('routeTargetStat').textContent = '目标 ' + fmtKm(limits().min) + '–' + fmtKm(limits().max) + ' km';
@@ -1555,6 +1702,8 @@ async function openRoutePlanner() {
       state.plan.route = cached.route.map((p) => ({
         lat: Number(p.lat), lng: Number(p.lng)
       })).filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
+      state.plan.strokes = (cached.strokes || []).filter((n) => n < state.plan.route.length);
+      if (state.plan.route.length && !state.plan.strokes.length) state.plan.strokes = [0];
       renderCheckpoints();
       renderRoute();
       if (state.plan.checkpoints.length || state.plan.route.length) {
@@ -2232,6 +2381,7 @@ async function doLogout() {
   }
   state.plan.checkpoints = [];
   state.plan.route = [];
+  state.plan.strokes = [];
   state.plannedRoute = null;
   $('km').readOnly = false;
   updatePlanStatus();
@@ -2353,7 +2503,7 @@ function showWelcome() {
     '使用方法：',
     '1. 用学号和密码登录；',
     '2. 选择公里数，填写用时或配速，三者自动换算；',
-    '3. 点“开始跑步”可获取本次随机打卡点，在校园地图上点选路线，必须经过所有打卡点；',
+    '3. 点“开始跑步”可获取本次随机打卡点，在校园地图上按住拖动、用画笔手绘路线，必须经过所有打卡点；右下角可切换画笔/移动地图；',
     '4. 每天只能上传 1 次（服务器硬性限制），成功一次后按钮锁定到明天；',
     '5. 单次上限 6 公里，配速需在 3:00–9:00 /公里；',
     '6. 不规划路线时仍可使用默认模拟轨迹或记录真实 GPS 轨迹；',
@@ -2381,6 +2531,7 @@ function bindEvents() {
       clearPlanCache();
       state.plan.checkpoints = [];
       state.plan.route = [];
+      state.plan.strokes = [];
       toast('校区已切换，手绘路线已清除');
     }
     updateHint();
@@ -2413,6 +2564,11 @@ function bindEvents() {
   $('routeClear').addEventListener('click', clearRoutePoints);
   $('routeAuto').addEventListener('click', autoConnectCheckpoints);
   $('routeDone').addEventListener('click', finishPlan);
+  $('routePen').addEventListener('click', () => {
+    setPen(!state.plan.pen);
+    toast(state.plan.pen ? '画笔已开启，按住地图拖动即可画线' : '已切换到移动地图，可拖动和双指缩放');
+  });
+  bindRouteDrawing();
 
   $('btnGeo').addEventListener('click', locate);
   $('btnRecord').addEventListener('click', toggleRecord);

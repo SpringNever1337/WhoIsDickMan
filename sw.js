@@ -1,4 +1,4 @@
-const CACHE = 'dickontop-v5';
+const CACHE = 'dickontop-v6';
 const ASSETS = [
   './',
   './index.html',
