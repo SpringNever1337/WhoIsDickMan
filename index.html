@@ -1280,6 +1280,7 @@ function setPen(on) {
   state.plan.pen = !!on;
   state.plan.drawing = false;
   state.plan.strokeStarted = false;
+  state.plan.pointers.clear();
   const btn = $('routePen');
   if (btn) {
     btn.textContent = state.plan.pen ? '画笔：开' : '移动地图';
@@ -1502,6 +1503,9 @@ function autoConnectCheckpoints() {
   order.push(order[0]);
   state.plan.route = order.map((p) => ({ lat: p.lat, lng: p.lng }));
   state.plan.strokes = [0];
+  state.plan.drawing = false;
+  state.plan.strokeStarted = false;
+  state.plan.pointers.clear();
   renderRoute();
   routeHint('已按打卡点自动连线并闭合回路，可继续手绘微调；直线可能穿过建筑，建议按道路调整。', 'warn');
 }
@@ -1520,6 +1524,9 @@ function undoRoutePoint() {
 function clearRoutePoints() {
   state.plan.route = [];
   state.plan.strokes = [];
+  state.plan.drawing = false;
+  state.plan.strokeStarted = false;
+  state.plan.pointers.clear();
   renderRoute();
 }
 
