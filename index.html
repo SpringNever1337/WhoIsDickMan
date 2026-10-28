@@ -218,8 +218,8 @@
   }
   .route-head b { font-size: 16px; }
   .route-head span { font-size: 11px; color: var(--muted); margin-left: 8px; }
-  .route-map-wrap { position: relative; flex: 1; min-height: 0; }
-  #routeMap { position: absolute; inset: 0; background: #0a1a14; z-index: 0; touch-action: none; }
+  .route-map-wrap { position: relative; flex: 1; min-height: 0; display: flex; }
+  #routeMap { flex: 1; min-width: 0; min-height: 0; background: #0a1a14; z-index: 0; touch-action: none; }
   #routePen {
     position: absolute; right: 10px; bottom: 12px; z-index: 900;
     padding: 8px 12px; border-radius: 999px; font-size: 12px; color: #d6f0e0;
@@ -492,6 +492,26 @@ const CHECKPOINT_RADIUS = 20; // 米，与 App 的随机点判定半径一致
 const CAMPUS = {
   1: { name: '西校区', lat: 36.80950, lng: 117.99700 },
   2: { name: '东校区', lat: 36.80950, lng: 118.04100 }
+};
+
+// 地图元数据兜底：直接双击 index.html（file://）时 fetch 会被浏览器拦截，
+// 内置一份与 map/map.json 相同的数据，保证离线底图仍然能加载。
+const MAP_META_FALLBACK = {
+  attribution: '© 高德地图',
+  campuses: {
+    '1': {
+      name: '西校区', image: 'west.jpg', width: 2304, height: 3584,
+      north: 36.82687474287728, south: 36.7960895187315,
+      west: 117.98492431640625, east: 118.0096435546875,
+      centerLat: 36.8095, centerLng: 117.997
+    },
+    '2': {
+      name: '东校区', image: 'east.jpg', width: 2304, height: 3584,
+      north: 36.82687474287728, south: 36.7960895187315,
+      west: 118.02886962890625, east: 118.0535888671875,
+      centerLat: 36.8095, centerLng: 118.041
+    }
+  }
 };
 
 const state = {
@@ -1161,9 +1181,10 @@ async function loadMapMeta() {
         state.mapMeta = m;
         return m;
       })
-      .catch((e) => {
-        state.mapMetaPromise = null;
-        throw e;
+      .catch(() => {
+        // 本地 file://、离线打开或 map.json 缺失时使用内置数据
+        state.mapMeta = MAP_META_FALLBACK;
+        return state.mapMeta;
       });
   }
   return state.mapMetaPromise;
@@ -1341,6 +1362,7 @@ function bindRouteDrawing() {
   if (!box) return;
   box.addEventListener('pointerdown', (e) => {
     if (!state.plan.pen || !state.plan.active || state.plan.loading || !state.plan.map) return;
+    if (e.pointerType === 'touch') return; // 触摸统一走原生 touch 事件，避免与 Leaflet 双指缩放冲突
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     if (e.target && e.target.closest && e.target.closest('.leaflet-control')) return;
     if (state.plan.pointers.has(e.pointerId)) return;
@@ -1384,6 +1406,54 @@ function bindRouteDrawing() {
   };
   box.addEventListener('pointerup', finish);
   box.addEventListener('pointercancel', finish);
+
+  // 触摸屏走原生 touch 事件：iOS Safari 上比 PointerEvent 更稳定。
+  let touchId = null;
+  box.addEventListener('touchstart', (e) => {
+    if (!state.plan.pen || !state.plan.active || state.plan.loading || !state.plan.map) return;
+    if (e.target && e.target.closest && e.target.closest('.leaflet-control')) return;
+    if (e.touches.length > 1) {
+      if (state.plan.drawing) endPlanStroke();
+      return; // 两根手指交给 Leaflet 缩放
+    }
+    const t = e.touches[0];
+    if (!t) return;
+    touchId = t.identifier;
+    state.plan.drawing = true;
+    state.plan.strokeStarted = false;
+    state.plan.lastX = t.clientX;
+    state.plan.lastY = t.clientY;
+    if (appendPlanPoint(t)) renderRoute();
+    e.preventDefault();
+  }, { passive: false });
+
+  box.addEventListener('touchmove', (e) => {
+    if (!state.plan.drawing) return;
+    if (e.touches.length !== 1) {
+      endPlanStroke();
+      return; // 第二根手指按下后停止画线，让地图双指缩放
+    }
+    const t = e.touches[0];
+    if (!t) return;
+    if (touchId != null && t.identifier !== touchId) touchId = t.identifier;
+    const dx = t.clientX - state.plan.lastX;
+    const dy = t.clientY - state.plan.lastY;
+    if (dx * dx + dy * dy < 9) return;
+    state.plan.lastX = t.clientX;
+    state.plan.lastY = t.clientY;
+    if (appendPlanPoint(t)) renderRouteThrottled();
+    e.preventDefault();
+  }, { passive: false });
+
+  const touchEnd = (e) => {
+    if (!state.plan.drawing) return;
+    if (!e.touches || e.touches.length === 0) {
+      touchId = null;
+      endPlanStroke();
+    }
+  };
+  box.addEventListener('touchend', touchEnd);
+  box.addEventListener('touchcancel', touchEnd);
 }
 
 function renderCheckpoints() {
