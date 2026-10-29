@@ -1,6 +1,6 @@
 {
-  "versionCode": 32,
-  "versionName": "3.0.2",
+  "versionCode": 33,
+  "versionName": "3.0.3",
   "releaseUrl": "https://github.com/SpringNever1337/WhoIsDickMan/releases/latest",
   "notes": "1. 上传失败自动重试与待上传队列（10 秒 / 30 秒 / 2 分钟）\n2. 上传前自检、上传确认摘要、本地上传历史\n3. 路线收藏与复用（每个校区 3 条）、路线 JSON 导入导出、橡皮整笔删除\n4. 05:30 开放与 22:00 截止提醒\n5. 一键诊断、静默版本检查（发现新版本自动打开 GitHub Release）"
 }
