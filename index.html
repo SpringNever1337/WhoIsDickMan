@@ -337,6 +337,7 @@
       <div class="run-tip">
         先向服务器获取本次随机打卡点，在山东理工大学地图上点选绘制路线。
         路线必须经过所有打卡点，完成后的公里数按绘制长度自动填入。
+        也可以点「自动画路线」一键生成 3–6 公里路线；没有下发打卡点时同样可用。
       </div>
       <div class="run-actions">
         <button id="btnStartRun" class="primary" type="button">开始跑步 · 获取打卡点</button>
@@ -415,7 +416,7 @@
       <details class="help">
         <summary>使用方法 / 常见问题</summary>
         <ol>
-          <li>点“开始跑步 · 获取打卡点”，在校园地图上点选绘制路线，路线必须经过所有随机打卡点；</li>
+          <li>点“开始跑步 · 获取打卡点”，在校园地图上点选绘制路线，路线必须经过所有随机打卡点；也可以点“自动画路线”一键生成符合 3–6 公里要求的路线；</li>
           <li>完成后公里数按绘制路线长度自动填入并锁定，想改公里数需先清除手绘路线；</li>
           <li>公里数、用时、配速任意改一个，另外两个会自动换算；</li>
           <li>“模拟轨迹”会根据填写的里程生成一条长度一致的环形路线，默认以所选校区为中心；</li>
@@ -471,7 +472,7 @@
     <div class="route-actions">
       <button id="routeUndo" class="ghost" type="button">撤销</button>
       <button id="routeClear" class="ghost" type="button">清空</button>
-      <button id="routeAuto" class="ghost" type="button">自动经过</button>
+      <button id="routeAuto" class="ghost" type="button" title="一键生成覆盖所有打卡点、长度符合要求的路线">自动画路线</button>
       <button id="routeDone" class="primary" type="button">完成</button>
     </div>
   </div>
@@ -1532,7 +1533,7 @@ function renderRoute() {
   $('routeTargetStat').textContent = target;
 
   if (!route.length) {
-    routeHint('按住地图拖动即可手绘路线；红点是必须经过的打卡点，圆圈为 20 米判定范围。右下角可切换「画笔 / 移动地图」。', '');
+    routeHint('点「自动画路线」可一键生成 3–6 公里路线；也可以按住地图手绘。红点是必须经过的打卡点，圆圈为 20 米判定范围。', '');
   } else if (required.length && covered < required.length) {
     routeHint('还有 ' + (required.length - covered) + ' 个打卡点未经过，请把路线画到红色圆点附近。', 'warn');
   } else if (meters < l.min) {
@@ -1545,43 +1546,273 @@ function renderRoute() {
   savePlanCacheSoon();
 }
 
-function autoConnectCheckpoints() {
-  const all = state.plan.checkpoints.slice();
-  if (!all.length) {
-    routeHint('服务器没有下发打卡点，可以直接关闭后使用模拟轨迹。', 'warn');
-    return;
+function planCampusMeta() {
+  const id = String(state.plan.campus || 1);
+  return (state.mapMeta && state.mapMeta.campuses && state.mapMeta.campuses[id])
+    || MAP_META_FALLBACK.campuses[id] || MAP_META_FALLBACK.campuses['1'];
+}
+
+function autoTargetMeters() {
+  const l = limits();
+  const span = Math.max(0, l.max - l.min);
+  let target = l.min + Math.max(120, Math.min(600, span * 0.2));
+  target = Math.min(target, l.max - 100);
+  if (target < l.min + 30) target = (l.min + l.max) / 2;
+  return target;
+}
+
+function makeCircleLoop(center, radius, startAngle, count) {
+  const out = [];
+  const dLat = radius / 111320;
+  const dLng = radius / (111320 * Math.cos(center.lat * Math.PI / 180));
+  for (let i = 0; i <= count; i += 1) {
+    const a = startAngle + Math.PI * 2 * i / count;
+    out.push({
+      lat: center.lat + dLat * Math.cos(a),
+      lng: center.lng + dLng * Math.sin(a)
+    });
   }
-  const required = all.filter((c) => !c.isPass);
-  const pts = required.length ? required : all;
-  const center = CAMPUS[state.plan.campus] || CAMPUS[1];
-  const start = { lat: center.lat, lng: center.lng };
-  let remain = pts.slice();
-  let bi = 0;
-  let best = Infinity;
-  remain.forEach((p, i) => {
-    const d = haversine(start, p);
-    if (d < best) { best = d; bi = i; }
-  });
-  let cur = remain.splice(bi, 1)[0];
-  const order = [cur];
+  return out;
+}
+
+function bruteCheckpointOrders(cps) {
+  const n = cps.length;
+  if (n <= 1) return { open: cps.slice(), closed: cps.slice() };
+  const idx = [];
+  for (let i = 0; i < n; i += 1) idx.push(i);
+  let bestOpen = Infinity;
+  let bestClosed = Infinity;
+  let openOrder = null;
+  let closedOrder = null;
+
+  function walk(k) {
+    if (k === n) {
+      let open = 0;
+      for (let i = 1; i < n; i += 1) open += haversine(cps[idx[i - 1]], cps[idx[i]]);
+      const closed = open + haversine(cps[idx[n - 1]], cps[idx[0]]);
+      if (open < bestOpen) { bestOpen = open; openOrder = idx.slice(); }
+      if (closed < bestClosed) { bestClosed = closed; closedOrder = idx.slice(); }
+      return;
+    }
+    for (let i = k; i < n; i += 1) {
+      const t = idx[k];
+      idx[k] = idx[i];
+      idx[i] = t;
+      walk(k + 1);
+      const u = idx[k];
+      idx[k] = idx[i];
+      idx[i] = u;
+    }
+  }
+  walk(0);
+  return {
+    open: openOrder.map((i) => cps[i]),
+    closed: closedOrder.map((i) => cps[i])
+  };
+}
+
+function nearestOrder(cps, startIndex) {
+  const remain = cps.slice();
+  const order = [];
+  let cur = null;
+  if (startIndex != null) {
+    cur = remain.splice(startIndex, 1)[0];
+    order.push(cur);
+  }
   while (remain.length) {
-    bi = 0;
-    best = Infinity;
+    let bi = 0;
+    let best = Infinity;
     remain.forEach((p, i) => {
-      const d = haversine(cur, p);
+      const d = cur ? haversine(cur, p) : 0;
       if (d < best) { best = d; bi = i; }
     });
     cur = remain.splice(bi, 1)[0];
     order.push(cur);
   }
-  order.push(order[0]);
-  state.plan.route = order.map((p) => ({ lat: p.lat, lng: p.lng }));
+  return order;
+}
+
+function openTwoOpt(order) {
+  let improved = true;
+  while (improved) {
+    improved = false;
+    for (let i = 0; i < order.length - 1; i += 1) {
+      for (let j = i + 1; j < order.length; j += 1) {
+        if (i === 0 && j === order.length - 1) continue;
+        const before = (i > 0 ? haversine(order[i - 1], order[i]) : 0) +
+          (j + 1 < order.length ? haversine(order[j], order[j + 1]) : 0);
+        const after = (i > 0 ? haversine(order[i - 1], order[j]) : 0) +
+          (j + 1 < order.length ? haversine(order[i], order[j + 1]) : 0);
+        if (after + 1 < before) {
+          const mid = order.slice(i, j + 1).reverse();
+          order.splice(i, mid.length, ...mid);
+          improved = true;
+        }
+      }
+    }
+  }
+  return order;
+}
+
+function heuristicCheckpointOrders(cps) {
+  let bestOpen = null;
+  let bestOpenLen = Infinity;
+  let bestClosed = null;
+  let bestClosedLen = Infinity;
+  const starts = cps.map((_, i) => i);
+  starts.push(null);
+  starts.forEach((start) => {
+    const order = openTwoOpt(nearestOrder(cps, start));
+    const openLen = routeMeters(order);
+    if (openLen < bestOpenLen) { bestOpenLen = openLen; bestOpen = order.slice(); }
+    const closedLen = openLen + haversine(order[order.length - 1], order[0]);
+    if (closedLen < bestClosedLen) { bestClosedLen = closedLen; bestClosed = order.slice(); }
+  });
+  return { open: bestOpen, closed: bestClosed };
+}
+
+function planCheckpointOrders(cps) {
+  if (cps.length <= 8) return bruteCheckpointOrders(cps);
+  return heuristicCheckpointOrders(cps);
+}
+
+function campusRadiusAt(meta, point) {
+  const latM = 111320;
+  const lngM = 111320 * Math.cos(point.lat * Math.PI / 180);
+  const north = (Number(meta.north) - point.lat) * latM;
+  const south = (point.lat - Number(meta.south)) * latM;
+  const east = (Number(meta.east) - point.lng) * lngM;
+  const west = (point.lng - Number(meta.west)) * lngM;
+  return Math.max(20, Math.min(north, south, east, west) * 0.86);
+}
+
+function buildLoopAtStart(order, loopCenter, radius, closed) {
+  const cp0 = order[0];
+  const north = (cp0.lat - loopCenter.lat) * 111320;
+  const east = (cp0.lng - loopCenter.lng) * 111320 * Math.cos(loopCenter.lat * Math.PI / 180);
+  const startAngle = Math.atan2(east, north);
+  const route = [{ lat: cp0.lat, lng: cp0.lng }];
+  makeCircleLoop(loopCenter, radius, startAngle, 96).forEach((p) => route.push(p));
+  route.push({ lat: cp0.lat, lng: cp0.lng });
+  for (let i = 1; i < order.length; i += 1) {
+    route.push({ lat: order[i].lat, lng: order[i].lng });
+  }
+  if (closed && order.length > 1) {
+    route.push({ lat: cp0.lat, lng: cp0.lng });
+  }
+  return route;
+}
+
+function autoConnectCheckpoints() {
+  const all = state.plan.checkpoints.slice();
+  const required = all.filter((c) => !c.isPass);
+  const pts = required.length ? required : all;
+  const meta = planCampusMeta();
+  const center = { lat: Number(meta.centerLat), lng: Number(meta.centerLng) };
+  const l = limits();
+  const target = autoTargetMeters();
+  const latHalf = (Number(meta.north) - Number(meta.south)) * 111320 / 2;
+  const lngHalf = (Number(meta.east) - Number(meta.west)) *
+    111320 * Math.cos(center.lat * Math.PI / 180) / 2;
+  const rMax = Math.max(60, Math.min(latHalf, lngHalf) * 0.86);
+  let route = null;
+  let note = '';
+
+  if (!pts.length) {
+    const radius = Math.min(rMax, target / (Math.PI * 2));
+    route = makeCircleLoop(center, radius, -Math.PI / 2, 128);
+    note = '本次没有打卡点，已自动生成 ' + fmtKm(routeMeters(route)) +
+      ' 公里闭环路线，可直接点“完成”。';
+  } else {
+    const orders = planCheckpointOrders(pts);
+    let order = orders.closed;
+    let closed = order.concat([order[0]]);
+    let meters = routeMeters(closed);
+    let isClosed = true;
+    if (meters > l.max) {
+      const openMeters = routeMeters(orders.open);
+      if (openMeters < meters) {
+        order = orders.open;
+        closed = orders.open.slice();
+        meters = openMeters;
+        isClosed = false;
+      }
+    }
+    if (meters > l.max) {
+      state.plan.route = closed.map((p) => ({ lat: p.lat, lng: p.lng }));
+      state.plan.strokes = [0];
+      state.plan.drawing = false;
+      state.plan.strokeStarted = false;
+      state.plan.pointers.clear();
+      renderRoute();
+      routeHint('这些打卡点最短连线约 ' + fmtKm(meters) + ' 公里，已超过单次上限 ' +
+        fmtKm(l.max) + ' 公里，无法自动生成合规路线。请手动画线或换个时段再试。', 'err');
+      return;
+    }
+    let bestRoute = closed;
+    let bestLen = meters;
+    if (meters < target) {
+      const centers = [order[0]];
+      const mid = {
+        lat: (order[0].lat + center.lat) / 2,
+        lng: (order[0].lng + center.lng) / 2
+      };
+      if (haversine(mid, order[0]) > 30) centers.push(mid);
+      if (haversine(center, order[0]) > 60) centers.push(center);
+      for (let ci = 0; ci < centers.length; ci += 1) {
+        const loopCenter = centers[ci];
+        const base = meters + 2 * haversine(order[0], loopCenter);
+        if (base > l.max) continue;
+        const maxByLength = Math.max(0, (l.max - base) / (Math.PI * 2 + 2));
+        let lo = 0;
+        let hi = Math.min(campusRadiusAt(meta, loopCenter), maxByLength);
+        if (hi <= 0.5) continue;
+        for (let i = 0; i < 28; i += 1) {
+          const midR = (lo + hi) / 2;
+          if (routeMeters(buildLoopAtStart(order, loopCenter, midR, isClosed)) < target) lo = midR;
+          else hi = midR;
+        }
+        let cand = buildLoopAtStart(order, loopCenter, hi, isClosed);
+        if (routeMeters(cand) > l.max) {
+          cand = buildLoopAtStart(order, loopCenter, lo, isClosed);
+        }
+        const len = routeMeters(cand);
+        if (len > l.max) continue;
+        if (len >= l.min) {
+          bestRoute = cand;
+          bestLen = len;
+          break;
+        }
+        if (len > bestLen) {
+          bestRoute = cand;
+          bestLen = len;
+        }
+      }
+    }
+    route = bestRoute;
+    const finalMeters = bestLen;
+    if (finalMeters < l.min) {
+      state.plan.route = route.map((p) => ({ lat: p.lat, lng: p.lng }));
+      state.plan.strokes = [0];
+      state.plan.drawing = false;
+      state.plan.strokeStarted = false;
+      state.plan.pointers.clear();
+      renderRoute();
+      routeHint('按这些打卡点只能生成约 ' + fmtKm(finalMeters) + ' 公里，低于最低 ' +
+        fmtKm(l.min) + ' 公里。请手动画线补足或换个时段再试。', 'err');
+      return;
+    }
+    note = '已自动生成 ' + fmtKm(finalMeters) + ' 公里路线，覆盖 ' +
+      pts.length + ' 个打卡点。';
+  }
+
+  state.plan.route = route.map((p) => ({ lat: p.lat, lng: p.lng }));
   state.plan.strokes = [0];
   state.plan.drawing = false;
   state.plan.strokeStarted = false;
   state.plan.pointers.clear();
   renderRoute();
-  routeHint('已按打卡点自动连线并闭合回路，可继续手绘微调；直线可能穿过建筑，建议按道路调整。', 'warn');
+  routeHint(note + '可继续手绘微调，确认后点“完成”。', 'ok');
 }
 
 function undoRoutePoint() {
@@ -1738,9 +1969,9 @@ async function fetchPlanCheckpoints() {
     renderRoute();
     savePlanCache();
     if (!state.plan.checkpoints.length) {
-      routeHint('服务器本次没有下发打卡点，可以直接关闭后使用模拟轨迹；也可以在地图上画一条路线。', 'warn');
+      routeHint('服务器本次没有下发打卡点。点「自动画路线」可直接生成合规路线，也可以在地图上手绘。', 'warn');
     } else {
-      routeHint('已获取 ' + state.plan.checkpoints.length + ' 个打卡点。按住地图拖动画线，让线经过所有红点。', 'ok');
+      routeHint('已获取 ' + state.plan.checkpoints.length + ' 个打卡点。点「自动画路线」一键生成，或按住地图手绘让线经过所有红点。', 'ok');
     }
   } catch (e) {
     state.plan.checkpoints = [];
