@@ -1704,9 +1704,8 @@ function buildLoopAtStart(order, loopCenter, radius, closed) {
 }
 
 function autoConnectCheckpoints() {
-  const all = state.plan.checkpoints.slice();
-  const required = all.filter((c) => !c.isPass);
-  const pts = required.length ? required : all;
+  const required = state.plan.checkpoints.filter((c) => !c.isPass);
+  const pts = required;
   const meta = planCampusMeta();
   const center = { lat: Number(meta.centerLat), lng: Number(meta.centerLng) };
   const l = limits();
@@ -1721,7 +1720,7 @@ function autoConnectCheckpoints() {
   if (!pts.length) {
     const radius = Math.min(rMax, target / (Math.PI * 2));
     route = makeCircleLoop(center, radius, -Math.PI / 2, 128);
-    note = '本次没有打卡点，已自动生成 ' + fmtKm(routeMeters(route)) +
+    note = '本次没有需要经过的打卡点，已自动生成 ' + fmtKm(routeMeters(route)) +
       ' 公里闭环路线，可直接点“完成”。';
   } else {
     const orders = planCheckpointOrders(pts);
