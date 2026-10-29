@@ -1811,6 +1811,9 @@ function autoConnectCheckpoints() {
   state.plan.strokeStarted = false;
   state.plan.pointers.clear();
   renderRoute();
+  if (route.length > 1 && state.plan.map && state.plan.routeLayer) {
+    state.plan.map.fitBounds(state.plan.routeLayer.getBounds(), { padding: [24, 24], maxZoom: 17 });
+  }
   routeHint(note + '可继续手绘微调，确认后点“完成”。', 'ok');
 }
 
