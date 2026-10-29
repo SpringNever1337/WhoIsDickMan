@@ -258,6 +258,7 @@
   #routeHint .err { color: var(--danger); }
   #routeHint .ok { color: var(--neon); }
   .route-actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; margin-top: 8px; }
+  .route-actions-5 { grid-template-columns: repeat(5, 1fr); }
   .route-actions button { font-size: 12px; padding: 10px 6px; }
   .route-actions .primary { width: 100%; }
 
@@ -424,7 +425,8 @@
         <summary>使用方法 / 常见问题</summary>
         <ol>
           <li>顶部选择校区，点“打开校园地图 · 绘制路线”加载对应校区地图；地图顶部也可以随时切换西/东校区；</li>
-          <li>地图打开后默认就是画笔模式，顶部会显示“画笔已开启”，按住地图拖动即可画线；右下角绿色“画笔：开”按钮可切换画笔/移动地图，双指可缩放；路线必须经过所有红色打卡点；打卡点较多时可点“按点连线”先连接，再手绘补足距离；</li>
+          <li>地图打开后默认就是画笔模式，顶部会显示“画笔已开启”，按住地图拖动即可画线；右下角绿色“画笔：开”按钮可切换画笔/移动地图，双指可缩放；路线必须经过所有红色打卡点；打卡点较多时可点“按点连线”先连接，再手绘补足距离；“橡皮：开”后点哪一条线就整条删除；</li>
+          <li>画好的路线可以点“收藏路线”保存（每个校区最多 3 条），下次从“已存路线”一键载入；点“导出”把路线复制成 JSON，点“导入”可粘贴 APK 或网页版导出的路线；</li>
           <li>点“完成”后公里数按绘制路线长度自动填入并锁定；没有打卡点时直接手绘即可；</li>
           <li>用时、配速任意改一个，另一个会自动换算；公里数由路线决定；</li>
           <li>点“记录真实 GPS 轨迹”会调用定位，结束后可勾选“使用真实轨迹”上传；</li>
@@ -486,6 +488,13 @@
       <button id="routeAuto" class="ghost" type="button" title="按打卡点顺序连线；长度不足请继续手绘补足">按点连线</button>
       <button id="routeDone" class="primary" type="button">完成</button>
     </div>
+    <div class="route-actions route-actions-5">
+      <button id="routeEraser" class="ghost" type="button">橡皮：关</button>
+      <button id="routeSave" class="ghost" type="button">收藏路线</button>
+      <button id="routeSaved" class="ghost" type="button">已存路线</button>
+      <button id="routeExport" class="ghost" type="button">导出</button>
+      <button id="routeImport" class="ghost" type="button">导入</button>
+    </div>
   </div>
 </div>
 
@@ -503,6 +512,7 @@ const LS_WELCOME = 'dickontop_welcome_session';
 const LS_DISCLAIMER = 'dickontop_disclaimer_session';
 const LS_UPLOADED = 'dickontop_uploaded_date_v1';
 const LS_PLAN = 'dickontop_plan_v1';
+const LS_ROUTES = 'dickontop_routes_v1';
 const CHECKPOINT_RADIUS = 20; // 米，与 App 的随机点判定半径一致
 
 const CAMPUS = {
@@ -560,6 +570,7 @@ const state = {
     route: [],
     strokes: [],          // 每一笔路线在 route 中的起始下标，撤销时整笔删除
     pen: true,            // true = 手指画线；false = 拖动/缩放地图
+    eraser: false,        // true = 点哪一笔就整笔删除
     drawing: false,
     strokeStarted: false,
     pointers: new Set(),
@@ -1258,6 +1269,7 @@ function initRouteMap(campus) {
 
 function setPen(on) {
   state.plan.pen = !!on;
+  if (on) state.plan.eraser = false;
   state.plan.drawing = false;
   state.plan.strokeStarted = false;
   state.plan.pointers.clear();
@@ -1266,6 +1278,11 @@ function setPen(on) {
     btn.textContent = state.plan.pen ? '画笔：开' : '画笔：关（移动）';
     btn.classList.toggle('on', state.plan.pen);
     btn.classList.toggle('off', !state.plan.pen);
+  }
+  const eraserBtn = $('routeEraser');
+  if (eraserBtn) {
+    eraserBtn.textContent = state.plan.eraser ? '橡皮：开' : '橡皮：关';
+    eraserBtn.classList.toggle('on', state.plan.eraser);
   }
   const tip = $('routePenTip');
   if (tip) {
@@ -1287,6 +1304,281 @@ function setPen(on) {
     map.boxZoom.enable();
     if (map.tap) map.tap.enable();
   }
+}
+
+function setEraser(on) {
+  state.plan.eraser = !!on;
+  if (on) {
+    setPen(false);
+  }
+  const btn = $('routeEraser');
+  if (btn) {
+    btn.textContent = state.plan.eraser ? '橡皮：开' : '橡皮：关';
+    btn.classList.toggle('on', state.plan.eraser);
+  }
+}
+
+function removePlanStroke(target, starts) {
+  const kept = [];
+  const next = [];
+  for (let s = 0; s < starts.length; s += 1) {
+    const from = starts[s];
+    const to = s + 1 < starts.length ? starts[s + 1] : state.plan.route.length;
+    if (s === target) continue;
+    next.push(kept.length);
+    for (let i = from; i < to; i += 1) kept.push(state.plan.route[i]);
+  }
+  state.plan.route = kept;
+  state.plan.strokes = next;
+}
+
+function eraseStrokeAtPoint(clientX, clientY) {
+  const map = state.plan.map;
+  const route = state.plan.route;
+  if (!map || !route.length) return false;
+  const box = $('routeMap');
+  if (!box) return false;
+  const rect = box.getBoundingClientRect();
+  const x = clientX - rect.left;
+  const y = clientY - rect.top;
+  const starts = state.plan.strokes.length ? state.plan.strokes.slice() : [0];
+  for (let s = 0; s < starts.length; s += 1) {
+    const from = starts[s];
+    const to = s + 1 < starts.length ? starts[s + 1] : route.length;
+    for (let i = from; i < to; i += 1) {
+      const p = map.latLngToContainerPoint([route[i].lat, route[i].lng]);
+      const dx = p.x - x;
+      const dy = p.y - y;
+      if (dx * dx + dy * dy <= 24 * 24) {
+        removePlanStroke(s, starts);
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function loadRoutes(campus) {
+  try {
+    const all = JSON.parse(localStorage.getItem(LS_ROUTES) || '{}');
+    const arr = all[String(campus)];
+    return Array.isArray(arr) ? arr : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function persistRoutes(campus, list) {
+  try {
+    const all = JSON.parse(localStorage.getItem(LS_ROUTES) || '{}');
+    all[String(campus)] = list.slice(-3);
+    localStorage.setItem(LS_ROUTES, JSON.stringify(all));
+  } catch (e) { /* ignore */ }
+}
+
+function applyPlanRoute(points) {
+  state.plan.route = points.map((p) => ({ lat: p.lat, lng: p.lng }));
+  state.plan.strokes = points.length ? [0] : [];
+  state.plan.drawing = false;
+  state.plan.strokeStarted = false;
+  state.plan.pointers.clear();
+  renderRoute();
+  if (state.plan.map && state.plan.routeLayer && points.length > 1) {
+    const bounds = state.plan.routeLayer.getBounds();
+    if (bounds && bounds.isValid()) {
+      state.plan.map.fitBounds(bounds, { padding: [24, 24], maxZoom: 17 });
+    }
+  }
+}
+
+function saveCurrentPlanRoute() {
+  const route = state.plan.route;
+  if (route.length < 2) {
+    toast('请先画一条路线再收藏');
+    return;
+  }
+  const list = loadRoutes(state.plan.campus);
+  const def = '路线 ' + (list.length + 1) + ' · ' + fmtKm(routeMeters(route)) + 'km';
+  let name = '';
+  try { name = (prompt('路线名称', def) || '').trim(); } catch (e) { name = def; }
+  if (!name) return;
+  list.push({
+    name,
+    savedAt: Date.now(),
+    meters: routeMeters(route),
+    points: route.map((p) => ({ lat: p.lat, lng: p.lng }))
+  });
+  persistRoutes(state.plan.campus, list);
+  toast('已收藏：' + name);
+}
+
+function showSavedRoutes() {
+  const campus = state.plan.campus;
+  const list = loadRoutes(campus);
+  const back = $('modal');
+  $('modalTitle').textContent = '已存路线 · ' + ((CAMPUS[campus] || CAMPUS[1]).name);
+  if (!list.length) {
+    $('modalBody').innerHTML = '<p>还没有收藏的路线。画好路线后点「收藏路线」，每个校区最多保存 3 条。</p>';
+  } else {
+    $('modalBody').innerHTML = list.map((r, i) => {
+      const pts = Array.isArray(r.points) ? r.points.length : 0;
+      return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.08)">'
+        + '<div style="flex:1;min-width:0"><b>' + esc(r.name || ('路线 ' + (i + 1))) + '</b>'
+        + '<br><span style="font-size:12px;color:#8fa3b3">' + fmtKm(Number(r.meters) || 0) + ' km · ' + pts + ' 个点</span></div>'
+        + '<button type="button" class="ghost" data-load="' + i + '" style="padding:6px 10px;font-size:12px">载入</button>'
+        + '<button type="button" class="ghost" data-del="' + i + '" style="padding:6px 10px;font-size:12px">删除</button>'
+        + '</div>';
+    }).join('');
+  }
+  const ok = $('modalOk');
+  const cancel = $('modalCancel');
+  ok.textContent = '关闭';
+  ok.disabled = false;
+  cancel.classList.add('hidden');
+  back.classList.remove('hidden');
+  const close = () => {
+    back.classList.add('hidden');
+    ok.onclick = null;
+    cancel.onclick = null;
+    back.onclick = null;
+  };
+  ok.onclick = close;
+  back.onclick = (e) => { if (e.target === back) close(); };
+  $('modalBody').querySelectorAll('[data-load]').forEach((btn) => {
+    btn.onclick = () => {
+      const item = list[Number(btn.getAttribute('data-load'))];
+      if (!item || !Array.isArray(item.points) || item.points.length < 2) {
+        toast('这条路线数据不完整');
+        return;
+      }
+      const points = item.points
+        .map((p) => ({ lat: Number(p.lat), lng: Number(p.lng) }))
+        .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
+      if (points.length < 2) {
+        toast('这条路线数据不完整');
+        return;
+      }
+      applyPlanRoute(points);
+      close();
+      toast('已载入路线：' + fmtKm(routeMeters(points)) + ' km');
+    };
+  });
+  $('modalBody').querySelectorAll('[data-del]').forEach((btn) => {
+    btn.onclick = () => {
+      const idx = Number(btn.getAttribute('data-del'));
+      const next = loadRoutes(campus).filter((_, i) => i !== idx);
+      persistRoutes(campus, next);
+      showSavedRoutes();
+      toast('已删除这条收藏路线');
+    };
+  });
+}
+
+function routeJsonModal(title, text, okText, onOk) {
+  const back = $('modal');
+  $('modalTitle').textContent = title;
+  $('modalBody').innerHTML = '<textarea id="routeJsonText" spellcheck="false" style="width:100%;height:170px;font-size:12px;font-family:monospace;background:#0f1720;color:#d7e3ee;border:1px solid #2a3a4a;border-radius:8px;padding:8px;resize:vertical"></textarea>';
+  const ta = $('routeJsonText');
+  ta.value = text || '';
+  const ok = $('modalOk');
+  const cancel = $('modalCancel');
+  ok.textContent = okText || '确定';
+  ok.disabled = false;
+  cancel.textContent = '取消';
+  cancel.classList.remove('hidden');
+  back.classList.remove('hidden');
+  const close = () => {
+    back.classList.add('hidden');
+    ok.onclick = null;
+    cancel.onclick = null;
+    back.onclick = null;
+  };
+  ok.onclick = () => {
+    if (onOk && onOk(ta.value) === false) return;
+    close();
+  };
+  cancel.onclick = close;
+  back.onclick = (e) => { if (e.target === back) close(); };
+}
+
+function exportPlanRoute() {
+  const route = state.plan.route;
+  if (route.length < 2) {
+    toast('请先画一条路线再导出');
+    return;
+  }
+  const payload = {
+    app: 'DickOnTop',
+    version: 1,
+    campus: state.plan.campus,
+    exportedAt: Date.now(),
+    meters: routeMeters(route),
+    points: route.map((p) => [p.lat, p.lng])
+  };
+  const text = JSON.stringify(payload);
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).catch(() => {});
+    }
+  } catch (e) { /* ignore */ }
+  routeJsonModal('导出路线 · ' + (CAMPUS[state.plan.campus] || CAMPUS[1]).name,
+    text, '复制并关闭', (value) => {
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(value);
+        }
+      } catch (e) { /* ignore */ }
+      toast('路线 JSON 已复制，可粘贴到 APK 或网页版导入');
+      return true;
+    });
+}
+
+function importPlanRoute() {
+  routeJsonModal('导入路线 · ' + (CAMPUS[state.plan.campus] || CAMPUS[1]).name,
+    '', '导入', (value) => {
+      const text = String(value || '').trim();
+      if (!text) {
+        toast('请先粘贴路线 JSON');
+        return false;
+      }
+      try {
+        let campusInFile = 0;
+        let arr;
+        if (text.startsWith('[')) {
+          arr = JSON.parse(text);
+        } else {
+          const root = JSON.parse(text);
+          campusInFile = Number(root.campus) || 0;
+          arr = root.points;
+        }
+        if (campusInFile > 0 && campusInFile !== state.plan.campus) {
+          toast('这条路线属于' + (CAMPUS[campusInFile] || CAMPUS[1]).name + '，请先切换校区再导入');
+          return false;
+        }
+        if (!Array.isArray(arr)) {
+          toast('没有解析到路线点');
+          return false;
+        }
+        const points = arr.map((p) => {
+          if (Array.isArray(p)) return { lat: Number(p[0]), lng: Number(p[1]) };
+          return {
+            lat: Number(p && (p.lat != null ? p.lat : p.latitude)),
+            lng: Number(p && (p.lng != null ? p.lng : p.longitude))
+          };
+        }).filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng)
+          && Math.abs(p.lat) > 0.0001 && Math.abs(p.lng) > 0.0001);
+        if (points.length < 2) {
+          toast('没有解析到有效路线点');
+          return false;
+        }
+        applyPlanRoute(points);
+        toast('导入成功：' + fmtKm(routeMeters(points)) + ' km，' + points.length + ' 个点');
+        return true;
+      } catch (e) {
+        toast('导入失败：JSON 格式不正确');
+        return false;
+      }
+    });
 }
 
 function mapPointInBounds(latlng) {
@@ -1328,10 +1620,16 @@ function bindRouteDrawing() {
   const box = $('routeMap');
   if (!box) return;
   box.addEventListener('pointerdown', (e) => {
-    if (!state.plan.pen || !state.plan.active || !state.plan.map) return;
+    if (!state.plan.active || !state.plan.map) return;
     if (e.pointerType === 'touch') return; // 触摸统一走原生 touch 事件，避免与 Leaflet 双指缩放冲突
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     if (e.target && e.target.closest && e.target.closest('.leaflet-control')) return;
+    if (state.plan.eraser) {
+      if (eraseStrokeAtPoint(e.clientX, e.clientY)) renderRoute();
+      e.preventDefault();
+      return;
+    }
+    if (!state.plan.pen) return;
     if (state.plan.pointers.has(e.pointerId)) return;
     state.plan.pointers.add(e.pointerId);
     if (state.plan.pointers.size > 1) {
@@ -1377,7 +1675,7 @@ function bindRouteDrawing() {
   // 触摸屏走原生 touch 事件：iOS Safari 上比 PointerEvent 更稳定。
   let touchId = null;
   box.addEventListener('touchstart', (e) => {
-    if (!state.plan.pen || !state.plan.active || !state.plan.map) return;
+    if (!state.plan.active || !state.plan.map) return;
     if (e.target && e.target.closest && e.target.closest('.leaflet-control')) return;
     if (e.touches.length > 1) {
       if (state.plan.drawing) endPlanStroke();
@@ -1385,6 +1683,12 @@ function bindRouteDrawing() {
     }
     const t = e.touches[0];
     if (!t) return;
+    if (state.plan.eraser) {
+      if (eraseStrokeAtPoint(t.clientX, t.clientY)) renderRoute();
+      e.preventDefault();
+      return;
+    }
+    if (!state.plan.pen) return;
     touchId = t.identifier;
     state.plan.drawing = true;
     state.plan.strokeStarted = false;
@@ -1877,6 +2181,7 @@ async function openRoutePlanner() {
   state.plan.active = true;
   state.plan.campus = campus;
   state.plan.pen = true;
+  state.plan.eraser = false;
   state.plan.checkpoints = [];
   state.plan.route = [];
   state.plan.strokes = [];
@@ -2865,6 +3170,16 @@ function bindEvents() {
     setPen(!state.plan.pen);
     toast(state.plan.pen ? '画笔已开启，按住地图拖动即可画线' : '已切换到移动地图，可拖动和双指缩放');
   });
+  $('routeEraser').addEventListener('click', () => {
+    setEraser(!state.plan.eraser);
+    toast(state.plan.eraser
+      ? '橡皮已开启：点哪一条线就整条删除，双指仍可缩放'
+      : '橡皮已关闭');
+  });
+  $('routeSave').addEventListener('click', saveCurrentPlanRoute);
+  $('routeSaved').addEventListener('click', showSavedRoutes);
+  $('routeExport').addEventListener('click', exportPlanRoute);
+  $('routeImport').addEventListener('click', importPlanRoute);
   bindRouteDrawing();
 
   $('btnRecord').addEventListener('click', toggleRecord);
