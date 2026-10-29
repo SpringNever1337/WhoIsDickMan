@@ -217,22 +217,34 @@
     display: flex; align-items: center; justify-content: space-between; gap: 10px;
     padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.08);
   }
-  .route-head b { font-size: 16px; }
-  .route-head span { font-size: 11px; color: var(--muted); margin-left: 8px; }
-  .route-head-main { display: flex; align-items: center; min-width: 0; }
+  .route-head b { font-size: 16px; white-space: nowrap; }
+  .route-head span { font-size: 11px; color: var(--muted); margin-left: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .route-head-main { display: flex; align-items: center; min-width: 0; flex: 1 1 auto; overflow: hidden; }
   .route-campus-select {
-    flex: 0 0 auto; padding: 7px 8px; border-radius: 8px; font-size: 12px;
+    flex: 0 0 auto; width: auto; min-width: 76px; max-width: 108px;
+    padding: 7px 8px; border-radius: 8px; font-size: 12px;
     color: var(--text); background: #0b1a20; border: 1px solid rgba(214,240,224,0.28);
   }
+  #routeClose { flex: 0 0 auto; white-space: nowrap; }
   .route-map-wrap { position: relative; flex: 1; min-height: 0; display: flex; }
   #routeMap { flex: 1; min-width: 0; min-height: 0; background: #0a1a14; z-index: 0; touch-action: none; }
+  #routeMap.pen { cursor: crosshair; }
   #routePen {
-    position: absolute; right: 10px; bottom: 12px; z-index: 900;
-    padding: 8px 12px; border-radius: 999px; font-size: 12px; color: #d6f0e0;
-    background: rgba(5,11,14,0.82); border: 1px solid rgba(214,240,224,0.35);
+    position: absolute; right: 12px; bottom: 14px; z-index: 900;
+    padding: 10px 16px; border-radius: 999px; font-size: 13px; font-weight: 700;
+    color: #d6f0e0; background: rgba(5,11,14,0.88);
+    border: 1px solid rgba(214,240,224,0.45);
+    box-shadow: 0 2px 14px rgba(0,0,0,0.55);
+  }
+  #routePen.on { color: #06110c; background: var(--neon); border-color: var(--neon); }
+  #routePen.off { color: #ffd9a3; border-color: rgba(255,200,87,0.55); }
+  .route-pen-tip {
+    position: absolute; left: 50%; top: 10px; transform: translateX(-50%);
+    z-index: 900; pointer-events: none; white-space: nowrap;
+    padding: 7px 12px; border-radius: 999px; font-size: 12px; color: #d6f0e0;
+    background: rgba(5,11,14,0.82); border: 1px solid rgba(57,255,136,0.45);
     box-shadow: 0 2px 10px rgba(0,0,0,0.45);
   }
-  #routePen.on { color: #06110c; background: var(--neon); border-color: var(--neon); font-weight: 700; }
   .route-panel {
     padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
     border-top: 1px solid rgba(255,255,255,0.08); background: #08131a;
@@ -412,7 +424,7 @@
         <summary>使用方法 / 常见问题</summary>
         <ol>
           <li>顶部选择校区，点“打开校园地图 · 绘制路线”加载对应校区地图；地图顶部也可以随时切换西/东校区；</li>
-          <li>按住地图拖动即可手绘路线；右下角可切换画笔/移动地图，双指可缩放；路线必须经过所有红色打卡点；打卡点较多时可点“按点连线”先连接，再手绘补足距离；</li>
+          <li>地图打开后默认就是画笔模式，顶部会显示“画笔已开启”，按住地图拖动即可画线；右下角绿色“画笔：开”按钮可切换画笔/移动地图，双指可缩放；路线必须经过所有红色打卡点；打卡点较多时可点“按点连线”先连接，再手绘补足距离；</li>
           <li>点“完成”后公里数按绘制路线长度自动填入并锁定；没有打卡点时直接手绘即可；</li>
           <li>用时、配速任意改一个，另一个会自动换算；公里数由路线决定；</li>
           <li>点“记录真实 GPS 轨迹”会调用定位，结束后可勾选“使用真实轨迹”上传；</li>
@@ -425,7 +437,7 @@
     </div>
 
     <footer>
-      <div class="line">DickOnTop · 网页版无更新检测 · 仅用于个人学习</div>
+      <div class="line">DickOnTop · 网页版 v14 · 手动绘制 · 仅用于个人学习</div>
       <div class="line">总访问流量（APP + 网页）：<br>
         <img src="https://hits.sh/github.com/SpringNever1337/WhoIsDickMan/hits.svg?style=flat-square&amp;label=%E6%80%BB%E8%AE%BF%E9%97%AE%E6%B5%81%E9%87%8F" alt="总访问流量" style="height:20px;vertical-align:middle;margin-top:6px;" loading="lazy" referrerpolicy="no-referrer">
       </div>
@@ -458,6 +470,7 @@
   </div>
   <div class="route-map-wrap">
     <div id="routeMap"></div>
+    <div id="routePenTip" class="route-pen-tip">画笔已开启：按住地图画线</div>
     <button id="routePen" class="on" type="button">画笔：开</button>
   </div>
   <div class="route-panel">
@@ -783,7 +796,7 @@ function makeSign(salt) {
 
 /* ============================== API ============================== */
 
-async function api(path, body) {
+async function api(path, body, timeoutMs) {
   const salt = makeSalt();
   const url = API_BASE + path + '?salt=' + encodeURIComponent(salt) + '&sign=' + encodeURIComponent(makeSign(salt));
   const init = { method: 'POST', cache: 'no-store', referrerPolicy: 'no-referrer' };
@@ -791,11 +804,20 @@ async function api(path, body) {
     init.headers = { 'Content-Type': 'application/json' };
     init.body = JSON.stringify(body);
   }
+  let timer = null;
+  if (timeoutMs) {
+    const ctrl = new AbortController();
+    init.signal = ctrl.signal;
+    timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  }
   let res;
   try {
     res = await fetch(url, init);
   } catch (e) {
+    if (e && e.name === 'AbortError') throw new Error('请求超时，请检查网络后重试');
     throw new Error('网络请求失败，请检查网络或服务器是否可访问');
+  } finally {
+    if (timer) clearTimeout(timer);
   }
   const text = await res.text();
   let json = null;
@@ -1241,11 +1263,19 @@ function setPen(on) {
   state.plan.pointers.clear();
   const btn = $('routePen');
   if (btn) {
-    btn.textContent = state.plan.pen ? '画笔：开' : '移动地图';
+    btn.textContent = state.plan.pen ? '画笔：开' : '画笔：关（移动）';
     btn.classList.toggle('on', state.plan.pen);
+    btn.classList.toggle('off', !state.plan.pen);
+  }
+  const tip = $('routePenTip');
+  if (tip) {
+    tip.textContent = state.plan.pen
+      ? '画笔已开启：按住地图画线'
+      : '移动模式：拖动/双指缩放地图';
   }
   const map = state.plan.map;
   if (!map) return;
+  map.getContainer().classList.toggle('pen', state.plan.pen);
   if (state.plan.pen) {
     map.dragging.disable();
     map.doubleClickZoom.disable();
@@ -1298,7 +1328,7 @@ function bindRouteDrawing() {
   const box = $('routeMap');
   if (!box) return;
   box.addEventListener('pointerdown', (e) => {
-    if (!state.plan.pen || !state.plan.active || state.plan.loading || !state.plan.map) return;
+    if (!state.plan.pen || !state.plan.active || !state.plan.map) return;
     if (e.pointerType === 'touch') return; // 触摸统一走原生 touch 事件，避免与 Leaflet 双指缩放冲突
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     if (e.target && e.target.closest && e.target.closest('.leaflet-control')) return;
@@ -1347,7 +1377,7 @@ function bindRouteDrawing() {
   // 触摸屏走原生 touch 事件：iOS Safari 上比 PointerEvent 更稳定。
   let touchId = null;
   box.addEventListener('touchstart', (e) => {
-    if (!state.plan.pen || !state.plan.active || state.plan.loading || !state.plan.map) return;
+    if (!state.plan.pen || !state.plan.active || !state.plan.map) return;
     if (e.target && e.target.closest && e.target.closest('.leaflet-control')) return;
     if (e.touches.length > 1) {
       if (state.plan.drawing) endPlanStroke();
@@ -1796,7 +1826,7 @@ async function fetchPlanCheckpoints() {
   state.plan.loading = true;
   routeHint('正在检查上传时段并获取本次随机打卡点…', '');
   try {
-    const r0 = await api('/api/run/checkRunAllow', { userId: state.user.id });
+    const r0 = await api('/api/run/checkRunAllow', { userId: state.user.id }, 12000);
     if (!apiOk(r0)) {
       routeHint('当前不在打卡时段：' + apiMsg(r0) + '。仍可继续在校园地图上绘制路线。', 'warn');
     }
@@ -1806,7 +1836,7 @@ async function fetchPlanCheckpoints() {
       pointLat: center.lat,
       pointLong: center.lng,
       userId: state.user.id
-    });
+    }, 12000);
     if (!apiOk(r)) throw new Error(apiMsg(r));
     const list = Array.isArray(r.data) ? r.data : [];
     state.plan.checkpoints = list.map((p, i) => ({
@@ -1846,6 +1876,7 @@ async function openRoutePlanner() {
   const campus = Number($('campus').value) || 1;
   state.plan.active = true;
   state.plan.campus = campus;
+  state.plan.pen = true;
   state.plan.checkpoints = [];
   state.plan.route = [];
   state.plan.strokes = [];
@@ -2785,7 +2816,7 @@ function showWelcome() {
     '使用方法：',
     '1. 用学号和密码登录；',
     '2. 选择校区，点“打开校园地图 · 绘制路线”加载对应校区地图；地图顶部可随时切换西/东校区；',
-    '3. 按住地图拖动，用画笔手绘路线，必须经过所有红色打卡点；右下角可切换画笔/移动地图，双指可缩放；',
+    '3. 地图打开后默认是画笔模式，顶部显示“画笔已开启”，按住地图拖动即可画线；右下角绿色“画笔：开”按钮可切换移动/缩放；路线必须经过所有红色打卡点；',
     '4. 点“完成”后公里数按手绘路线长度自动填入；用时、配速任改一个，另一个自动换算；',
     '5. 每天只能上传 1 次（服务器硬性限制），成功一次后按钮锁定到明天；',
     '6. 单次上限 6 公里，配速需在 3:00–9:00 /公里；不绘制路线时，也可以记录真实 GPS 轨迹，点“用刚记录的数据填入公里/用时”并勾选“使用真实轨迹”后上传；',
