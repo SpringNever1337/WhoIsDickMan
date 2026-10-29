@@ -2607,7 +2607,7 @@ async function doUpload() {
 
     clearPlanCache();
     state.plannedRoute = null;
-    if ($('km')) $('km').readOnly = false;
+    if ($('km')) $('km').readOnly = true;
     updatePlanStatus();
     state.trackSeed = Math.floor(Math.random() * 1000000000);
     state.previewCache = null;
@@ -2660,11 +2660,12 @@ async function doLogout() {
     try { state.plan.map.remove(); } catch (e) { /* ignore */ }
     state.plan.map = null;
   }
+  state.plan.mapCampus = 0;
   state.plan.checkpoints = [];
   state.plan.route = [];
   state.plan.strokes = [];
   state.plannedRoute = null;
-  $('km').readOnly = false;
+  $('km').readOnly = true;
   updatePlanStatus();
   state.user = null;
   state.cfg = null;
