@@ -2082,7 +2082,7 @@ function aiTrackLap(meta, mask, anchor) {
     const a = a0 + Math.PI * 2 * i / 96;
     const x = track.cx + Math.cos(a) * track.rx;
     const y = track.cy + Math.sin(a) * track.ry;
-    const s = aiSnapPixel(meta, mask, x, y, 7);
+    const s = aiSnapPixel(meta, mask, x, y, 10);
     out.push(s ? aiToLatLng(meta, s.x, s.y) : aiToLatLng(meta, x, y));
   }
   out[out.length - 1] = out[0];
