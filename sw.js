@@ -1,4 +1,4 @@
-const CACHE = 'dickontop-v15';
+const CACHE = 'dickontop-v10';
 const ASSETS = [
   './',
   './index.html',
@@ -16,8 +16,11 @@ const ASSETS = [
   './vendor/leaflet/images/layers.png',
   './vendor/leaflet/images/layers-2x.png',
   './map/map.json',
+  './map/ai.json',
   './map/west.jpg',
-  './map/east.jpg'
+  './map/east.jpg',
+  './map/west_mask.png',
+  './map/east_mask.png'
 ];
 
 self.addEventListener('install', (event) => {
