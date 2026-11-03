@@ -1,6 +1,6 @@
 {
-  "versionCode": 33,
-  "versionName": "3.0.3",
+  "versionCode": 331,
+  "versionName": "3.3.1",
   "releaseUrl": "https://github.com/SpringNever1337/WhoIsDickMan/releases/tag/Update",
-  "notes": "1. 上传失败自动重试与待上传队列（10 秒 / 30 秒 / 2 分钟）\n2. 上传前自检、上传确认摘要、本地上传历史\n3. 路线收藏与复用（每个校区 3 条）、路线 JSON 导入导出、橡皮整笔删除\n4. 05:30 开放与 22:00 截止提醒\n5. 一键诊断、静默版本检查（发现新版本自动打开 GitHub Release）"
+  "notes": "DickOnTop v3.3.1 更新\n图形尺寸限制取消，最小 0.1m；缩放精度 0.1m，支持小数显示；超大图形滑块自动扩展。网页版 v17 / APK 3.3.1 已上线。"
 }
