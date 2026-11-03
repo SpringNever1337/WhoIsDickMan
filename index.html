@@ -2112,12 +2112,13 @@ function aiExtendRoute(meta, mask, route, min, max) {
       const toLap = aiFindPath(meta, mask, anchor, lap[0]);
       const back = aiFindPath(meta, mask, lap[lap.length - 1], anchor);
       const detour = routeMeters(toLap) + routeMeters(back);
-      let n = Math.ceil((min - meters - 40) / Math.max(120, meta.track.lapMeters));
+      const lapActual = Math.max(120, routeMeters(lap));
+      let n = Math.ceil((min - meters - 40) / lapActual);
       n = clamp(n, 0, 5);
-      let est = meters + detour + n * meta.track.lapMeters;
+      let est = meters + detour + n * lapActual;
       while (n > 0 && est > max + 40) {
         n -= 1;
-        est -= meta.track.lapMeters;
+        est -= lapActual;
       }
       if (n > 0) {
         const mid = toLap.slice();
@@ -2190,31 +2191,34 @@ async function aiLoadMask(campus) {
   });
 }
 
-function aiNoCheckpointSeed(meta, mask, min) {
+function aiNoCheckpointSeed(meta, mask, min, max) {
   const center = CAMPUS[state.plan.campus] || CAMPUS[1];
   const start = aiSnapPoint(meta, mask, center.lat, center.lng, 120)
     || { lat: center.lat, lng: center.lng };
   const mpp = aiMpp(meta);
-  const want = Math.max(400, min * 0.5);
   const W = state.aiMeta ? state.aiMeta.maskWidth : 576;
   const H = state.aiMeta ? state.aiMeta.maskHeight : 896;
   const sp = aiToPixel(meta, start.lat, start.lng);
+  const scales = [0.5, 0.4, 0.3, 0.2, 0.15];
   let best = null;
-  for (let k = 0; k < 16; k += 1) {
-    const a = Math.PI * 2 * k / 16;
-    const px = sp.x + Math.cos(a) * want / mpp;
-    const py = sp.y + Math.sin(a) * want / mpp;
-    if (px < 1 || py < 1 || px >= W - 1 || py >= H - 1) continue;
-    const s = aiSnapPixel(meta, mask, px, py, 8);
-    if (!s) continue;
-    const ll = aiToLatLng(meta, s.x, s.y);
-    const path = aiFindPath(meta, mask, start, ll);
-    if (!path) continue;
-    const len = routeMeters(path) + routeMeters(path.slice().reverse());
-    if (!best || len > best.len) best = { path: path, len: len };
+  for (let si = 0; si < scales.length; si += 1) {
+    const want = Math.max(300, min * scales[si]);
+    for (let k = 0; k < 16; k += 1) {
+      const a = Math.PI * 2 * k / 16;
+      const px = sp.x + Math.cos(a) * want / mpp;
+      const py = sp.y + Math.sin(a) * want / mpp;
+      if (px < 1 || py < 1 || px >= W - 1 || py >= H - 1) continue;
+      const s = aiSnapPixel(meta, mask, px, py, 40);
+      if (!s) continue;
+      const ll = aiToLatLng(meta, s.x, s.y);
+      const path = aiFindPath(meta, mask, start, ll);
+      if (!path) continue;
+      const len = routeMeters(path) * 2;
+      if (len <= max && (!best || len > best.len)) best = { path: path, len: len };
+    }
   }
   if (!best) {
-    return [start, { lat: start.lat, lng: start.lng }];
+    return null;
   }
   return best.path.concat(best.path.slice(0, -1).reverse());
 }
@@ -2238,7 +2242,7 @@ async function autoConnectCheckpoints() {
 
     if (required.length) {
       required.forEach((cp) => {
-        const s = aiSnapPoint(meta, mask, cp.lat, cp.lng, 18);
+        const s = aiSnapPoint(meta, mask, cp.lat, cp.lng, 15);
         if (s) {
           cp.lat = s.lat;
           cp.lng = s.lng;
@@ -2264,7 +2268,10 @@ async function autoConnectCheckpoints() {
       }
       pts = route;
     } else {
-      pts = aiNoCheckpointSeed(meta, mask, l.min);
+      pts = aiNoCheckpointSeed(meta, mask, l.min, l.max);
+    }
+    if (!pts || pts.length < 2) {
+      throw new Error('没有可自动生成的路线，请手动绘制');
     }
 
     const ext = aiExtendRoute(meta, mask, pts, l.min, l.max);
