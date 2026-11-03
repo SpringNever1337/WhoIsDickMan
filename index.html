@@ -264,6 +264,44 @@
   .route-actions-5 { grid-template-columns: repeat(5, 1fr); }
   .route-actions button { font-size: 12px; padding: 10px 6px; }
   .route-actions .primary { width: 100%; }
+  .route-shape-panel {
+    position: absolute; left: 10px; right: 10px; bottom: 56px; z-index: 950;
+    max-width: 460px; margin: 0 auto; padding: 8px 10px 10px;
+    border-radius: 14px; background: rgba(5,11,14,0.95);
+    border: 1px solid rgba(57,255,136,0.38);
+    box-shadow: 0 8px 28px rgba(0,0,0,0.6);
+  }
+  .route-shape-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    font-size: 11px; color: var(--muted);
+  }
+  .route-shape-head button {
+    padding: 4px 8px; font-size: 11px; color: var(--muted);
+    background: transparent; border: 1px solid rgba(255,255,255,0.18); border-radius: 8px;
+  }
+  .route-shape-items { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 7px; }
+  .shape-item {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    padding: 6px 2px 5px; border-radius: 10px; cursor: grab;
+    color: #d6f0e0; background: rgba(255,255,255,0.055);
+    border: 1px solid rgba(255,255,255,0.13);
+    font-size: 10px; line-height: 1.2; touch-action: none;
+    user-select: none; -webkit-user-select: none;
+  }
+  .shape-item:active { border-color: var(--neon); color: var(--neon); }
+  .shape-item svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 2.1; }
+  .route-shape-size {
+    display: flex; align-items: center; gap: 8px; margin-top: 8px;
+    font-size: 11px; color: var(--muted);
+  }
+  .route-shape-size input { flex: 1; min-width: 0; accent-color: var(--neon); }
+  .route-shape-size b { min-width: 42px; text-align: right; color: var(--neon); font-weight: 700; }
+  .shape-ghost {
+    position: fixed; z-index: 120; width: 56px; height: 56px;
+    margin: -28px 0 0 -28px; pointer-events: none; color: var(--neon);
+    opacity: 0.9; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.7));
+  }
+  .shape-ghost svg { width: 56px; height: 56px; fill: none; stroke: currentColor; stroke-width: 2; }
 
   .leaflet-container { font-family: inherit; font-size: 12px; background: #0a1a14; }
   .leaflet-control-attribution { background: rgba(5,11,14,0.75) !important; color: rgba(214,240,224,0.62) !important; }
@@ -428,7 +466,7 @@
         <summary>使用方法 / 常见问题</summary>
         <ol>
           <li>顶部选择校区，点“打开校园地图 · 绘制路线”加载对应校区地图；地图顶部也可以随时切换西/东校区；</li>
-          <li>地图打开后默认就是画笔模式，顶部会显示“画笔已开启”，按住地图拖动即可画线；右下角绿色“画笔：开”按钮可切换画笔/移动地图，双指可缩放；路线必须经过所有红色打卡点；打卡点较多时可点“按点连线”先连接，再手绘补足距离；“橡皮：开”后点哪一条线就整条删除；</li>
+          <li>地图打开后默认就是画笔模式，顶部会显示“画笔已开启”，按住地图拖动即可画线；右下角绿色“画笔：开”按钮可切换画笔/移动地图，双指可缩放；路线必须经过所有红色打卡点；点“图形”展开工具栏，按住圆形、矩形、椭圆、三角形或五角星拖到地图上，松开后图形轮廓就成为路线，可连续拖多个拼出 3–6 公里；“橡皮：开”后点哪一条线就整条删除；</li>
           <li>画好的路线可以点“收藏路线”保存（每个校区最多 3 条），下次从“已存路线”一键载入；点“导出”把路线复制成 JSON，点“导入”可粘贴 APK 或网页版导出的路线；</li>
           <li>点“完成”后公里数按绘制路线长度自动填入并锁定；没有打卡点时直接手绘即可；</li>
           <li>用时、配速任意改一个，另一个会自动换算；公里数由路线决定；</li>
@@ -442,7 +480,7 @@
     </div>
 
     <footer>
-      <div class="line">DickOnTop · 网页版 v14 · 手动绘制 · 仅用于个人学习</div>
+      <div class="line">DickOnTop · 网页版 v15 · 手动绘制 / 图形工具 · 仅用于个人学习</div>
       <div class="line">总访问流量（APP + 网页）：<br>
         <img src="https://hits.sh/github.com/SpringNever1337/WhoIsDickMan/hits.svg?style=flat-square&amp;label=%E6%80%BB%E8%AE%BF%E9%97%AE%E6%B5%81%E9%87%8F" alt="总访问流量" style="height:20px;vertical-align:middle;margin-top:6px;" loading="lazy" referrerpolicy="no-referrer">
       </div>
@@ -478,6 +516,35 @@
     <div id="routeMap"></div>
     <div id="routePenTip" class="route-pen-tip">画笔已开启：按住地图画线</div>
     <button id="routePen" class="on" type="button">画笔：开</button>
+    <div id="routeShapePanel" class="route-shape-panel hidden">
+      <div class="route-shape-head">
+        <span>图形工具 · 按住图形拖到地图上，松开即成为路线</span>
+        <button id="routeShapeClose" type="button">收起</button>
+      </div>
+      <div class="route-shape-items">
+        <div class="shape-item" data-shape="circle" title="圆形">
+          <svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="13"></circle></svg><span>圆形</span>
+        </div>
+        <div class="shape-item" data-shape="rect" title="矩形">
+          <svg viewBox="0 0 40 40" aria-hidden="true"><rect x="6" y="11" width="28" height="18" rx="2"></rect></svg><span>矩形</span>
+        </div>
+        <div class="shape-item" data-shape="oval" title="椭圆">
+          <svg viewBox="0 0 40 40" aria-hidden="true"><ellipse cx="20" cy="20" rx="14" ry="9"></ellipse></svg><span>椭圆</span>
+        </div>
+        <div class="shape-item" data-shape="triangle" title="三角形">
+          <svg viewBox="0 0 40 40" aria-hidden="true"><polygon points="20,6 34,32 6,32"></polygon></svg><span>三角形</span>
+        </div>
+        <div class="shape-item" data-shape="star" title="五角星">
+          <svg viewBox="0 0 40 40" aria-hidden="true"><polygon points="20,5 24.7,15.4 36,16.2 27.4,23.4 30.1,34.2 20,28.3 9.9,34.2 12.6,23.4 4,16.2 15.3,15.4"></polygon></svg><span>五角星</span>
+        </div>
+      </div>
+      <div class="route-shape-size">
+        <span>大小</span>
+        <input id="routeShapeSize" type="range" min="100" max="800" step="25" value="300" aria-label="图形大小">
+        <b id="routeShapeSizeVal">300m</b>
+      </div>
+    </div>
+    <div id="shapeGhost" class="shape-ghost hidden"></div>
   </div>
   <div class="route-panel">
     <div class="route-stats">
@@ -489,7 +556,7 @@
     <div class="route-actions">
       <button id="routeUndo" class="ghost" type="button">撤销</button>
       <button id="routeClear" class="ghost" type="button">清空</button>
-      <button id="routeAuto" class="ghost" type="button" title="AI 识别道路和打卡点，自动生成 3–6 公里跑步路线">AI 画路线</button>
+      <button id="routeShapeBtn" class="ghost" type="button" title="展开图形工具，把图形拖到地图上充当路线">图形</button>
       <button id="routeDone" class="primary" type="button">完成</button>
     </div>
     <div class="route-actions route-actions-5">
@@ -544,25 +611,6 @@ const MAP_META_FALLBACK = {
   }
 };
 
-const AI_META_FALLBACK = {
-  version: 1,
-  maskWidth: 576,
-  maskHeight: 896,
-  campuses: {
-    '1': {
-      mask: 'west_mask.png',
-      north: 36.82687474287728, south: 36.7960895187315,
-      west: 117.98492431640625, east: 118.0096435546875,
-      track: { cx: 82.25, cy: 386.25, rx: 42, ry: 38, lapMeters: 960 }
-    },
-    '2': {
-      mask: 'east_mask.png',
-      north: 36.82687474287728, south: 36.7960895187315,
-      west: 118.02886962890625, east: 118.0535888671875
-    }
-  }
-};
-
 const state = {
   user: null,
   cfg: null,
@@ -605,8 +653,8 @@ const state = {
     imageLayer: null,
     routeLayer: null,
     cpLayer: [],
-    aiMask: null,
-    aiBusy: false,
+    shapeDrag: null,
+    shapePreviewLayer: null,
     loading: false
   }
 };
@@ -1180,32 +1228,6 @@ async function loadMapMeta() {
       });
   }
   return state.mapMetaPromise;
-}
-
-async function loadAiMeta() {
-  if (state.aiMeta) return state.aiMeta;
-  if (!state.aiMetaPromise) {
-    state.aiMetaPromise = fetch('map/ai.json', { cache: 'no-store' })
-      .then((r) => {
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        return r.json();
-      })
-      .then((m) => {
-        state.aiMeta = m;
-        return m;
-      })
-      .catch(() => {
-        state.aiMeta = AI_META_FALLBACK;
-        return state.aiMeta;
-      });
-  }
-  return state.aiMetaPromise;
-}
-
-function aiMetaFor(campus) {
-  const id = String(campus || state.plan.campus || 1);
-  return (state.aiMeta && state.aiMeta.campuses && state.aiMeta.campuses[id])
-    || AI_META_FALLBACK.campuses[id] || null;
 }
 
 function routeHint(text, cls) {
@@ -1849,7 +1871,7 @@ function renderRoute() {
   $('routeTargetStat').textContent = target;
 
   if (!route.length) {
-    routeHint('按住地图拖动即可手绘路线；红点是必须经过的打卡点，圆圈为 20 米判定范围。也可以直接点「AI 画路线」自动识别道路并生成路线。', '');
+    routeHint('按住地图拖动即可手绘路线；红点是必须经过的打卡点，圆圈为 20 米判定范围。也可以点「图形」展开工具栏，把图形拖到地图上充当路线。', '');
   } else if (required.length && covered < required.length) {
     routeHint('还有 ' + (required.length - covered) + ' 个打卡点未经过，请把路线画到红色圆点附近。', 'warn');
   } else if (meters < l.min) {
@@ -1868,586 +1890,223 @@ function planCampusMeta() {
     || MAP_META_FALLBACK.campuses[id] || MAP_META_FALLBACK.campuses['1'];
 }
 
-function autoTargetMeters() {
-  const l = limits();
-  const span = Math.max(0, l.max - l.min);
-  let target = l.min + Math.max(120, Math.min(600, span * 0.2));
-  target = Math.min(target, l.max - 100);
-  if (target < l.min + 30) target = (l.min + l.max) / 2;
-  return target;
+/* ============================== 图形工具 ============================== */
+
+const SHAPE_LABELS = {
+  circle: '圆形', rect: '矩形', oval: '椭圆', triangle: '三角形', star: '五角星'
+};
+
+function shapeMeters() {
+  const el = $('routeShapeSize');
+  return el ? (Number(el.value) || 300) : 300;
 }
 
-function aiMpp(meta) {
-  const lat0 = (Number(meta.north) + Number(meta.south)) / 2 * Math.PI / 180;
-  const mx = (Number(meta.east) - Number(meta.west)) * 111320 * Math.cos(lat0) / (state.aiMeta ? state.aiMeta.maskWidth : 576);
-  const my = (Number(meta.north) - Number(meta.south)) * 110540 / (state.aiMeta ? state.aiMeta.maskHeight : 896);
-  return (mx + my) / 2;
+function toggleShapePanel() {
+  const panel = $('routeShapePanel');
+  if (!panel) return;
+  const show = panel.classList.contains('hidden');
+  panel.classList.toggle('hidden', !show);
+  if (show) toast('按住图形拖到地图上，松开即生成路线');
 }
 
-function aiToPixel(meta, lat, lng) {
-  const W = state.aiMeta ? state.aiMeta.maskWidth : 576;
-  const H = state.aiMeta ? state.aiMeta.maskHeight : 896;
-  return {
-    x: (Number(lng) - Number(meta.west)) / (Number(meta.east) - Number(meta.west)) * W,
-    y: (Number(meta.north) - Number(lat)) / (Number(meta.north) - Number(meta.south)) * H
-  };
+function shapeSvgInner(kind) {
+  if (kind === 'circle') return '<circle cx="20" cy="20" r="13"></circle>';
+  if (kind === 'rect') return '<rect x="6" y="11" width="28" height="18" rx="2"></rect>';
+  if (kind === 'oval') return '<ellipse cx="20" cy="20" rx="14" ry="9"></ellipse>';
+  if (kind === 'triangle') return '<polygon points="20,6 34,32 6,32"></polygon>';
+  return '<polygon points="20,5 24.7,15.4 36,16.2 27.4,23.4 30.1,34.2 20,28.3 9.9,34.2 12.6,23.4 4,16.2 15.3,15.4"></polygon>';
 }
 
-function aiToLatLng(meta, x, y) {
-  const W = state.aiMeta ? state.aiMeta.maskWidth : 576;
-  const H = state.aiMeta ? state.aiMeta.maskHeight : 896;
-  return {
-    lat: Number(meta.north) - (y / H) * (Number(meta.north) - Number(meta.south)),
-    lng: Number(meta.west) + (x / W) * (Number(meta.east) - Number(meta.west))
-  };
-}
-
-function aiIsWalk(mask, x, y) {
-  const ix = Math.round(x);
-  const iy = Math.round(y);
-  if (ix < 0 || iy < 0 || ix >= mask.w || iy >= mask.h) return false;
-  return mask.walk[iy * mask.w + ix] === 1;
-}
-
-function aiSnapPixel(meta, mask, x, y, maxR) {
-  if (aiIsWalk(mask, x, y)) return { x: Math.round(x), y: Math.round(y) };
-  const mpp = aiMpp(meta);
-  const cx = Math.round(x);
-  const cy = Math.round(y);
-  let best = null;
-  let bestD = Infinity;
-  for (let r = 1; r <= maxR; r += 1) {
-    for (let dy = -r; dy <= r; dy += 1) {
-      for (let dx = -r; dx <= r; dx += 1) {
-        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
-        const nx = cx + dx;
-        const ny = cy + dy;
-        if (!aiIsWalk(mask, nx, ny)) continue;
-        const d = Math.sqrt(dx * dx + dy * dy) * mpp;
-        if (d < bestD) { bestD = d; best = { x: nx, y: ny }; }
-      }
-    }
-    if (best && r * mpp > bestD + mpp) break;
-  }
-  return best;
-}
-
-function aiSnapPoint(meta, mask, lat, lng, maxMeters) {
-  const p = aiToPixel(meta, lat, lng);
-  const maxR = Math.max(1, Math.ceil(maxMeters / aiMpp(meta)));
-  const s = aiSnapPixel(meta, mask, p.x, p.y, maxR);
-  if (!s) return null;
-  const ll = aiToLatLng(meta, s.x, s.y);
-  const dist = haversine({ lat, lng }, ll);
-  if (dist > maxMeters) return null;
-  return { lat: ll.lat, lng: ll.lng, dist: dist };
-}
-
-function aiAstar(meta, mask, from, to, softCost) {
-  const W = mask.w;
-  const H = mask.h;
-  const N = W * H;
-  const fp = aiToPixel(meta, from.lat, from.lng);
-  const tp = aiToPixel(meta, to.lat, to.lng);
-  const sx = clamp(Math.round(fp.x), 0, W - 1);
-  const sy = clamp(Math.round(fp.y), 0, H - 1);
-  const tx = clamp(Math.round(tp.x), 0, W - 1);
-  const ty = clamp(Math.round(tp.y), 0, H - 1);
-  const s = sy * W + sx;
-  const t = ty * W + tx;
-
-  let st = mask.astar;
-  if (!st || st.n !== N) {
-    st = {
-      n: N,
-      g: new Float32Array(N),
-      prev: new Int32Array(N),
-      closed: new Uint8Array(N),
-      hf: new Float32Array(4096),
-      hi: new Int32Array(4096)
-    };
-    mask.astar = st;
-  }
-  const g = st.g;
-  const prev = st.prev;
-  const closed = st.closed;
-  g.fill(Infinity);
-  prev.fill(-1);
-  closed.fill(0);
-  let hf = st.hf;
-  let hi = st.hi;
-  let hn = 0;
-
-  function push(f, id) {
-    if (hn + 2 >= hf.length) {
-      const nf = new Float32Array(hf.length * 2);
-      nf.set(hf);
-      const ni = new Int32Array(hi.length * 2);
-      ni.set(hi);
-      hf = nf;
-      hi = ni;
-      st.hf = hf;
-      st.hi = hi;
-    }
-    hn += 1;
-    let i = hn;
-    while (i > 1) {
-      const p = i >> 1;
-      if (hf[p] <= f) break;
-      hf[i] = hf[p];
-      hi[i] = hi[p];
-      i = p;
-    }
-    hf[i] = f;
-    hi[i] = id;
-  }
-
-  function pop() {
-    const top = hi[1];
-    const lf = hf[hn];
-    const li = hi[hn];
-    hn -= 1;
-    let i = 1;
-    while (true) {
-      let c = i << 1;
-      if (c > hn) break;
-      if (c + 1 <= hn && hf[c + 1] < hf[c]) c += 1;
-      if (hf[c] >= lf) break;
-      hf[i] = hf[c];
-      hi[i] = hi[c];
-      i = c;
-    }
-    hf[i] = lf;
-    hi[i] = li;
-    return top;
-  }
-
-  g[s] = 0;
-  push(Math.hypot(sx - tx, sy - ty), s);
-  const dxs = [1, -1, 0, 0, 1, 1, -1, -1];
-  const dys = [0, 0, 1, -1, 1, -1, 1, -1];
-  while (hn > 0) {
-    const id = pop();
-    if (closed[id]) continue;
-    closed[id] = 1;
-    if (id === t) break;
-    const x = id % W;
-    const y = (id / W) | 0;
-    for (let k = 0; k < 8; k += 1) {
-      const nx = x + dxs[k];
-      const ny = y + dys[k];
-      if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
-      const ni = ny * W + nx;
-      if (closed[ni]) continue;
-      const step = k < 4 ? 1 : 1.41421356;
-      const walk = mask.walk[ni] === 1;
-      const nd = g[id] + step * (walk ? 1 : softCost);
-      if (nd < g[ni]) {
-        g[ni] = nd;
-        prev[ni] = id;
-        push(nd + Math.hypot(nx - tx, ny - ty), ni);
-      }
-    }
-  }
-  if (t !== s && prev[t] < 0) return null;
-  const cells = [];
-  for (let c = t; c >= 0; c = prev[c]) {
-    cells.push(c);
-    if (c === s) break;
-    if (cells.length > N) return null;
-  }
-  cells.reverse();
+function shapePolyline(kind, lat, lng, size) {
+  const latScale = 111320;
+  const lngScale = 111320 * Math.max(0.05, Math.cos(lat * Math.PI / 180));
   const out = [];
-  for (let i = 0; i < cells.length; i += 1) {
-    if (i !== 0 && i !== cells.length - 1 && i % 2 === 1) continue;
-    const id = cells[i];
-    out.push(aiToLatLng(meta, id % W, (id / W) | 0));
+  const add = (x, y) => out.push({ lat: lat + y / latScale, lng: lng + x / lngScale });
+  if (kind === 'rect') {
+    const w = size;
+    const h = size * 0.65;
+    add(-w, -h); add(w, -h); add(w, h); add(-w, h);
+  } else if (kind === 'triangle') {
+    for (let i = 0; i < 3; i += 1) {
+      const a = Math.PI / 2 + i * Math.PI * 2 / 3;
+      add(size * Math.cos(a), size * Math.sin(a));
+    }
+  } else if (kind === 'star') {
+    for (let i = 0; i < 10; i += 1) {
+      const a = Math.PI / 2 + i * Math.PI / 5;
+      const r = i % 2 === 0 ? size : size * 0.45;
+      add(r * Math.cos(a), r * Math.sin(a));
+    }
+  } else {
+    const rx = size;
+    const ry = kind === 'oval' ? size * 0.7 : size;
+    const n = 96;
+    for (let i = 0; i < n; i += 1) {
+      const a = Math.PI * 2 * i / n;
+      add(rx * Math.cos(a), ry * Math.sin(a));
+    }
   }
+  out.push({ lat: out[0].lat, lng: out[0].lng });
   return out;
 }
 
-function aiFindPath(meta, mask, a, b) {
-  const path = aiAstar(meta, mask, a, b, 22);
-  if (path && path.length >= 2) return path;
-  return [{ lat: a.lat, lng: a.lng }, { lat: b.lat, lng: b.lng }];
-}
-
-function aiTrackLap(meta, mask, anchor) {
-  const track = meta.track;
-  if (!track) return null;
-  const ap = aiToPixel(meta, anchor.lat, anchor.lng);
-  const a0 = Math.atan2(ap.y - track.cy, ap.x - track.cx);
-  const out = [];
-  for (let i = 0; i <= 96; i += 1) {
-    const a = a0 + Math.PI * 2 * i / 96;
-    const x = track.cx + Math.cos(a) * track.rx;
-    const y = track.cy + Math.sin(a) * track.ry;
-    const s = aiSnapPixel(meta, mask, x, y, 10);
-    out.push(s ? aiToLatLng(meta, s.x, s.y) : aiToLatLng(meta, x, y));
-  }
-  out[out.length - 1] = out[0];
-  return out;
-}
-
-function aiNearestIndex(route, meta, track) {
+function rotateShapeToNearest(points, last) {
+  if (!last || points.length < 3) return points;
+  const ring = points.slice(0, points.length - 1);
   let best = 0;
   let bestD = Infinity;
-  for (let i = 0; i < route.length; i += 1) {
-    const p = aiToPixel(meta, route[i].lat, route[i].lng);
-    const d = Math.hypot(p.x - track.cx, p.y - track.cy);
+  for (let i = 0; i < ring.length; i += 1) {
+    const d = haversine(last, ring[i]);
     if (d < bestD) { bestD = d; best = i; }
   }
-  return best;
-}
-
-function aiExtendRoute(meta, mask, route, min, max) {
-  let meters = routeMeters(route);
-  let trackLaps = 0;
-  let outAndBack = false;
-  if (meters < min && meta.track && route.length) {
-    const idx = aiNearestIndex(route, meta, meta.track);
-    const anchor = route[idx];
-    const lap = aiTrackLap(meta, mask, anchor);
-    if (lap && lap.length > 4) {
-      const toLap = aiFindPath(meta, mask, anchor, lap[0]);
-      const back = aiFindPath(meta, mask, lap[lap.length - 1], anchor);
-      const detour = routeMeters(toLap) + routeMeters(back);
-      const lapActual = Math.max(120, routeMeters(lap));
-      let n = Math.ceil((min - meters - 40) / lapActual);
-      n = clamp(n, 0, 5);
-      let est = meters + detour + n * lapActual;
-      while (n > 0 && est > max + 40) {
-        n -= 1;
-        est -= lapActual;
-      }
-      if (n > 0) {
-        const mid = toLap.slice();
-        for (let k = 0; k < n; k += 1) {
-          for (let j = 0; j < lap.length - 1; j += 1) mid.push(lap[j]);
-          mid.push(lap[0]);
-        }
-        for (let j = 1; j < back.length; j += 1) mid.push(back[j]);
-        route = route.slice(0, idx).concat(mid, route.slice(idx + 1));
-        meters = routeMeters(route);
-        trackLaps = n;
-      }
-    }
-  }
-  if (meters < min && route.length >= 2) {
-    const rev = route.slice(0, -1).reverse();
-    let acc = 0;
-    for (let i = 0; i < rev.length; i += 1) {
-      const last = route[route.length - 1];
-      acc += haversine(last, rev[i]);
-      route.push(rev[i]);
-      if (meters + acc >= min) break;
-    }
-    meters = routeMeters(route);
-    outAndBack = true;
-  }
-  return { route: route, meters: meters, trackLaps: trackLaps, outAndBack: outAndBack };
-}
-
-function aiPixelMeters(meta, route) {
-  let sum = 0;
-  const mpp = aiMpp(meta);
-  for (let i = 1; i < route.length; i += 1) {
-    const a = aiToPixel(meta, route[i - 1].lat, route[i - 1].lng);
-    const b = aiToPixel(meta, route[i].lat, route[i].lng);
-    sum += Math.hypot(b.x - a.x, b.y - a.y) * mpp;
-  }
-  return sum;
-}
-
-async function aiLoadMask(campus) {
-  const ai = aiMetaFor(campus);
-  if (!ai || !ai.mask) return null;
-  if (state.plan.aiMask && state.plan.aiMask.campus === campus) return state.plan.aiMask;
-  state.plan.aiMask = null;
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      try {
-        const w = (state.aiMeta && state.aiMeta.maskWidth) || img.width;
-        const h = (state.aiMeta && state.aiMeta.maskHeight) || img.height;
-        const cv = document.createElement('canvas');
-        cv.width = w;
-        cv.height = h;
-        const ctx = cv.getContext('2d', { willReadFrequently: true });
-        ctx.drawImage(img, 0, 0, w, h);
-        const data = ctx.getImageData(0, 0, w, h).data;
-        const walk = new Uint8Array(w * h);
-        for (let i = 0; i < walk.length; i += 1) {
-          walk[i] = data[i * 4] > 128 ? 1 : 0;
-        }
-        state.plan.aiMask = { campus: campus, w: w, h: h, walk: walk };
-        resolve(state.plan.aiMask);
-      } catch (e) {
-        resolve(null);
-      }
-    };
-    img.onerror = () => resolve(null);
-    img.src = 'map/' + ai.mask;
-  });
-}
-
-function aiNoCheckpointSeed(meta, mask, min, max) {
-  const center = CAMPUS[state.plan.campus] || CAMPUS[1];
-  const start = aiSnapPoint(meta, mask, center.lat, center.lng, 120)
-    || { lat: center.lat, lng: center.lng };
-  const mpp = aiMpp(meta);
-  const W = state.aiMeta ? state.aiMeta.maskWidth : 576;
-  const H = state.aiMeta ? state.aiMeta.maskHeight : 896;
-  const sp = aiToPixel(meta, start.lat, start.lng);
-  const scales = [0.5, 0.4, 0.3, 0.2, 0.15];
-  let best = null;
-  for (let si = 0; si < scales.length; si += 1) {
-    const want = Math.max(300, min * scales[si]);
-    for (let k = 0; k < 16; k += 1) {
-      const a = Math.PI * 2 * k / 16;
-      const px = sp.x + Math.cos(a) * want / mpp;
-      const py = sp.y + Math.sin(a) * want / mpp;
-      if (px < 1 || py < 1 || px >= W - 1 || py >= H - 1) continue;
-      const s = aiSnapPixel(meta, mask, px, py, 40);
-      if (!s) continue;
-      const ll = aiToLatLng(meta, s.x, s.y);
-      const path = aiFindPath(meta, mask, start, ll);
-      if (!path) continue;
-      const len = routeMeters(path) * 2;
-      if (len <= max && (!best || len > best.len)) best = { path: path, len: len };
-    }
-  }
-  if (!best) {
-    return null;
-  }
-  return best.path.concat(best.path.slice(0, -1).reverse());
-}
-
-async function autoConnectCheckpoints() {
-  if (state.plan.aiBusy) return;
-  const required = requiredCheckpoints();
-  state.plan.aiBusy = true;
-  routeHint('AI 正在识别道路和打卡点，请稍候…', '');
-  const btn = $('routeAuto');
-  if (btn) btn.disabled = true;
-  try {
-    await loadAiMeta();
-    const mask = await aiLoadMask(state.plan.campus);
-    if (!mask) throw new Error('道路识别数据未加载');
-    const meta = aiMetaFor(state.plan.campus);
-    const l = limits();
-    let pts = [];
-    let snappedCount = 0;
-    let offRoadCount = 0;
-
-    if (required.length) {
-      required.forEach((cp) => {
-        const s = aiSnapPoint(meta, mask, cp.lat, cp.lng, 15);
-        if (s) {
-          cp.lat = s.lat;
-          cp.lng = s.lng;
-          cp._aiSnapped = true;
-          snappedCount += 1;
-          pts.push({ lat: cp.lat, lng: cp.lng });
-        } else {
-          offRoadCount += 1;
-          pts.push({ lat: cp.lat, lng: cp.lng });
-        }
-      });
-      renderCheckpoints();
-      const order = planCheckpointOrders(pts).open;
-      let route = [];
-      for (let i = 0; i < order.length; i += 1) {
-        if (!route.length) {
-          route.push({ lat: order[i].lat, lng: order[i].lng });
-        } else {
-          const last = route[route.length - 1];
-          const leg = aiFindPath(meta, mask, last, order[i]);
-          for (let j = 1; j < leg.length; j += 1) route.push(leg[j]);
-        }
-      }
-      pts = route;
-    } else {
-      pts = aiNoCheckpointSeed(meta, mask, l.min, l.max);
-    }
-    if (!pts || pts.length < 2) {
-      throw new Error('没有可自动生成的路线，请手动绘制');
-    }
-
-    const ext = aiExtendRoute(meta, mask, pts, l.min, l.max);
-    const route = ext.route;
-    const meters = Math.round(routeMeters(route));
-    const pxMeters = Math.round(aiPixelMeters(meta, route));
-    const diff = meters > 60 ? Math.abs(pxMeters - meters) / meters : 0;
-
-    applyPlanRoute(route);
-    const parts = [];
-    if (required.length) {
-      parts.push('AI 已识别 ' + required.length + ' 个打卡点');
-      if (snappedCount) parts.push(snappedCount + ' 个已吸附到道路');
-      if (offRoadCount) parts.push(offRoadCount + ' 个离道路较远，按原点连接');
-    } else {
-      parts.push('没有打卡点，AI 已按道路生成路线');
-    }
-    parts.push('路线 ' + fmtKm(meters) + ' km');
-    parts.push('比例校验 ' + (diff * 100).toFixed(1) + '%');
-    if (ext.trackLaps) parts.push('椭圆跑道补 ' + ext.trackLaps + ' 圈');
-    else if (ext.outAndBack) parts.push('沿原路折返补足');
-    let cls = 'ok';
-    if (meters > l.max) cls = 'err';
-    else if (meters < l.min) cls = 'warn';
-    routeHint(parts.join(' · '), cls);
-    if (meters < l.min) toast('AI 路线仍不足 ' + fmtKm(l.min) + ' km，请手动补足');
-    else if (meters > l.max) toast('AI 路线超过 ' + fmtKm(l.max) + ' km，请撤销后重试');
-    else toast('AI 路线已生成：' + fmtKm(meters) + ' km');
-  } catch (e) {
-    routeHint('AI 路线生成失败：' + (e.message || '未知错误'), 'err');
-  } finally {
-    state.plan.aiBusy = false;
-    if (btn) btn.disabled = false;
-  }
-}
-
-function makeCircleLoop(center, radius, startAngle, count) {
-  const out = [];
-  const dLat = radius / 111320;
-  const dLng = radius / (111320 * Math.cos(center.lat * Math.PI / 180));
-  for (let i = 0; i <= count; i += 1) {
-    const a = startAngle + Math.PI * 2 * i / count;
-    out.push({
-      lat: center.lat + dLat * Math.cos(a),
-      lng: center.lng + dLng * Math.sin(a)
-    });
-  }
+  const out = ring.slice(best).concat(ring.slice(0, best));
+  out.push({ lat: out[0].lat, lng: out[0].lng });
   return out;
 }
 
-function bruteCheckpointOrders(cps) {
-  const n = cps.length;
-  if (n <= 1) return { open: cps.slice(), closed: cps.slice() };
-  const idx = [];
-  for (let i = 0; i < n; i += 1) idx.push(i);
-  let bestOpen = Infinity;
-  let bestClosed = Infinity;
-  let openOrder = null;
-  let closedOrder = null;
-
-  function walk(k) {
-    if (k === n) {
-      let open = 0;
-      for (let i = 1; i < n; i += 1) open += haversine(cps[idx[i - 1]], cps[idx[i]]);
-      const closed = open + haversine(cps[idx[n - 1]], cps[idx[0]]);
-      if (open < bestOpen) { bestOpen = open; openOrder = idx.slice(); }
-      if (closed < bestClosed) { bestClosed = closed; closedOrder = idx.slice(); }
-      return;
-    }
-    for (let i = k; i < n; i += 1) {
-      const t = idx[k];
-      idx[k] = idx[i];
-      idx[i] = t;
-      walk(k + 1);
-      const u = idx[k];
-      idx[k] = idx[i];
-      idx[i] = u;
-    }
-  }
-  walk(0);
-  return {
-    open: openOrder.map((i) => cps[i]),
-    closed: closedOrder.map((i) => cps[i])
-  };
-}
-
-function nearestOrder(cps, startIndex) {
-  const remain = cps.slice();
-  const order = [];
-  let cur = null;
-  if (startIndex != null) {
-    cur = remain.splice(startIndex, 1)[0];
-    order.push(cur);
-  }
-  while (remain.length) {
-    let bi = 0;
-    let best = Infinity;
-    remain.forEach((p, i) => {
-      const d = cur ? haversine(cur, p) : 0;
-      if (d < best) { best = d; bi = i; }
-    });
-    cur = remain.splice(bi, 1)[0];
-    order.push(cur);
-  }
-  return order;
-}
-
-function openTwoOpt(order) {
-  let improved = true;
-  while (improved) {
-    improved = false;
-    for (let i = 0; i < order.length - 1; i += 1) {
-      for (let j = i + 1; j < order.length; j += 1) {
-        if (i === 0 && j === order.length - 1) continue;
-        const before = (i > 0 ? haversine(order[i - 1], order[i]) : 0) +
-          (j + 1 < order.length ? haversine(order[j], order[j + 1]) : 0);
-        const after = (i > 0 ? haversine(order[i - 1], order[j]) : 0) +
-          (j + 1 < order.length ? haversine(order[i], order[j + 1]) : 0);
-        if (after + 1 < before) {
-          const mid = order.slice(i, j + 1).reverse();
-          order.splice(i, mid.length, ...mid);
-          improved = true;
-        }
+function appendShapeRoute(kind, lat, lng, size) {
+  if (!SHAPE_LABELS[kind]) return false;
+  const last = state.plan.route.length
+    ? state.plan.route[state.plan.route.length - 1] : null;
+  const shape = rotateShapeToNearest(shapePolyline(kind, lat, lng, size), last);
+  const start = state.plan.route.length;
+  if (last) {
+    const d = haversine(last, shape[0]);
+    if (d >= 0.3) {
+      const steps = Math.max(1, Math.min(600, Math.ceil(d / 10)));
+      for (let i = 0; i <= steps; i += 1) {
+        const t = i / steps;
+        state.plan.route.push({
+          lat: last.lat + (shape[0].lat - last.lat) * t,
+          lng: last.lng + (shape[0].lng - last.lng) * t
+        });
       }
     }
   }
-  return order;
+  shape.forEach((p) => state.plan.route.push({ lat: p.lat, lng: p.lng }));
+  state.plan.strokes.push(start);
+  renderRoute();
+  const outside = shape.some((p) => !mapPointInBounds(p));
+  toast('已添加' + SHAPE_LABELS[kind] + ' ' + fmtKm(routeMeters(shape)) + ' km'
+    + (outside ? '（部分超出地图）' : ''));
+  return true;
 }
 
-function heuristicCheckpointOrders(cps) {
-  let bestOpen = null;
-  let bestOpenLen = Infinity;
-  let bestClosed = null;
-  let bestClosedLen = Infinity;
-  const starts = cps.map((_, i) => i);
-  starts.push(null);
-  starts.forEach((start) => {
-    const order = openTwoOpt(nearestOrder(cps, start));
-    const openLen = routeMeters(order);
-    if (openLen < bestOpenLen) { bestOpenLen = openLen; bestOpen = order.slice(); }
-    const closedLen = openLen + haversine(order[order.length - 1], order[0]);
-    if (closedLen < bestClosedLen) { bestClosedLen = closedLen; bestClosed = order.slice(); }
+function shapeGhostMove(x, y) {
+  const g = $('shapeGhost');
+  if (!g) return;
+  g.style.left = x + 'px';
+  g.style.top = y + 'px';
+}
+
+function clearShapePreview() {
+  const layer = state.plan.shapePreviewLayer;
+  if (layer && state.plan.map) {
+    try { state.plan.map.removeLayer(layer); } catch (e) { /* ignore */ }
+  }
+  state.plan.shapePreviewLayer = null;
+}
+
+function startShapeDrag(e, kind) {
+  if (!state.plan.active || !state.plan.map) return;
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const ghost = $('shapeGhost');
+  if (ghost) {
+    ghost.innerHTML = '<svg viewBox="0 0 40 40" aria-hidden="true">'
+      + shapeSvgInner(kind) + '</svg>';
+    ghost.classList.remove('hidden');
+  }
+  state.plan.shapeDrag = {
+    kind: kind,
+    size: shapeMeters(),
+    pointerId: e.pointerId,
+    downX: e.clientX,
+    downY: e.clientY,
+    moved: false
+  };
+  shapeGhostMove(e.clientX, e.clientY);
+  try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+}
+
+function moveShapeDrag(e) {
+  const d = state.plan.shapeDrag;
+  if (!d || e.pointerId !== d.pointerId) return;
+  if (Math.abs(e.clientX - d.downX) + Math.abs(e.clientY - d.downY) > 4) d.moved = true;
+  shapeGhostMove(e.clientX, e.clientY);
+  const map = state.plan.map;
+  const box = $('routeMap');
+  if (!map || !box) return;
+  const r = box.getBoundingClientRect();
+  const inside = e.clientX >= r.left && e.clientX <= r.right
+    && e.clientY >= r.top && e.clientY <= r.bottom;
+  if (!inside) { clearShapePreview(); return; }
+  const ll = map.containerPointToLatLng([e.clientX - r.left, e.clientY - r.top]);
+  const pts = shapePolyline(d.kind, ll.lat, ll.lng, d.size).map((p) => [p.lat, p.lng]);
+  if (!state.plan.shapePreviewLayer) {
+    state.plan.shapePreviewLayer = L.polyline(pts, {
+      color: '#ffd54f', weight: 2, opacity: 0.95,
+      dashArray: '6 6', interactive: false
+    }).addTo(map);
+  } else {
+    state.plan.shapePreviewLayer.setLatLngs(pts);
+  }
+  e.preventDefault();
+}
+
+function endShapeDrag(e) {
+  const d = state.plan.shapeDrag;
+  if (!d || e.pointerId !== d.pointerId) return;
+  state.plan.shapeDrag = null;
+  const ghost = $('shapeGhost');
+  if (ghost) { ghost.classList.add('hidden'); ghost.innerHTML = ''; }
+  const map = state.plan.map;
+  const box = $('routeMap');
+  let placed = false;
+  if (d.moved && map && box) {
+    const r = box.getBoundingClientRect();
+    const inside = e.clientX >= r.left && e.clientX <= r.right
+      && e.clientY >= r.top && e.clientY <= r.bottom;
+    if (inside) {
+      const ll = map.containerPointToLatLng([e.clientX - r.left, e.clientY - r.top]);
+      placed = appendShapeRoute(d.kind, ll.lat, ll.lng, d.size);
+    }
+  }
+  clearShapePreview();
+  if (!placed) toast(d.moved ? '请把图形拖到地图范围内再松开' : '按住图形拖到地图上再松开');
+}
+
+function cancelShapeDrag(e) {
+  const d = state.plan.shapeDrag;
+  if (!d || (e && e.pointerId !== d.pointerId)) return;
+  state.plan.shapeDrag = null;
+  const ghost = $('shapeGhost');
+  if (ghost) { ghost.classList.add('hidden'); ghost.innerHTML = ''; }
+  clearShapePreview();
+}
+
+function bindShapeTools() {
+  const panel = $('routeShapePanel');
+  if (!panel) return;
+  $('routeShapeClose').addEventListener('click', () => panel.classList.add('hidden'));
+  const size = $('routeShapeSize');
+  const sizeVal = $('routeShapeSizeVal');
+  if (size) {
+    const syncSize = () => {
+      if (sizeVal) sizeVal.textContent = (Number(size.value) || 300) + 'm';
+    };
+    size.addEventListener('input', syncSize);
+    syncSize();
+  }
+  panel.querySelectorAll('.shape-item').forEach((item) => {
+    item.addEventListener('pointerdown', (e) => {
+      startShapeDrag(e, item.getAttribute('data-shape'));
+    });
   });
-  return { open: bestOpen, closed: bestClosed };
-}
-
-function planCheckpointOrders(cps) {
-  if (cps.length <= 8) return bruteCheckpointOrders(cps);
-  return heuristicCheckpointOrders(cps);
-}
-
-function campusRadiusAt(meta, point) {
-  const latM = 111320;
-  const lngM = 111320 * Math.cos(point.lat * Math.PI / 180);
-  const north = (Number(meta.north) - point.lat) * latM;
-  const south = (point.lat - Number(meta.south)) * latM;
-  const east = (Number(meta.east) - point.lng) * lngM;
-  const west = (point.lng - Number(meta.west)) * lngM;
-  return Math.max(20, Math.min(north, south, east, west) * 0.86);
-}
-
-function buildLoopAtStart(order, loopCenter, radius, closed) {
-  const cp0 = order[0];
-  const north = (cp0.lat - loopCenter.lat) * 111320;
-  const east = (cp0.lng - loopCenter.lng) * 111320 * Math.cos(loopCenter.lat * Math.PI / 180);
-  const startAngle = Math.atan2(east, north);
-  const route = [{ lat: cp0.lat, lng: cp0.lng }];
-  makeCircleLoop(loopCenter, radius, startAngle, 96).forEach((p) => route.push(p));
-  route.push({ lat: cp0.lat, lng: cp0.lng });
-  for (let i = 1; i < order.length; i += 1) {
-    route.push({ lat: order[i].lat, lng: order[i].lng });
-  }
-  if (closed && order.length > 1) {
-    route.push({ lat: cp0.lat, lng: cp0.lng });
-  }
-  return route;
+  window.addEventListener('pointermove', moveShapeDrag, { passive: false });
+  window.addEventListener('pointerup', endShapeDrag);
+  window.addEventListener('pointercancel', cancelShapeDrag);
 }
 
 function undoRoutePoint() {
@@ -2572,6 +2231,12 @@ function updatePlanStatus() {
 
 function closeRoutePlanner() {
   state.plan.active = false;
+  state.plan.shapeDrag = null;
+  clearShapePreview();
+  const panel = $('routeShapePanel');
+  if (panel) panel.classList.add('hidden');
+  const ghost = $('shapeGhost');
+  if (ghost) { ghost.classList.add('hidden'); ghost.innerHTML = ''; }
   $('routeView').classList.add('hidden');
 }
 
@@ -2606,11 +2271,11 @@ async function fetchPlanCheckpoints(keepRoute) {
     renderRoute();
     savePlanCache();
     if (keepRoute && state.plan.route.length) {
-      routeHint('已刷新 ' + state.plan.checkpoints.length + ' 个打卡点，原路线保留。建议点「AI 画路线」重新识别道路并覆盖新打卡点。', 'ok');
+      routeHint('已刷新 ' + state.plan.checkpoints.length + ' 个打卡点，原路线保留。请检查路线是否经过新的红点。', 'ok');
     } else if (!state.plan.checkpoints.length) {
-      routeHint('服务器本次没有下发打卡点。可以点「AI 画路线」按道路自动生成，或按住地图手绘 3–6 公里。', 'warn');
+      routeHint('服务器本次没有下发打卡点。可以手绘，或用「图形」工具拼出 3–6 公里。', 'warn');
     } else {
-      routeHint('已获取 ' + state.plan.checkpoints.length + ' 个打卡点。可以点「AI 画路线」自动识别道路并覆盖全部红点，也可手绘后补足距离。', 'ok');
+      routeHint('已获取 ' + state.plan.checkpoints.length + ' 个打卡点。可以手绘，也可以用「图形」工具拼出 3–6 公里。', 'ok');
     }
   } catch (e) {
     state.plan.checkpoints = [];
@@ -2650,7 +2315,6 @@ async function openRoutePlanner() {
   routeHint('正在准备地图…', '');
   try {
     await loadMapMeta();
-    await loadAiMeta();
     initRouteMap(campus);
     const cached = loadPlanCache();
     if (cached && Number(cached.campus) === campus) {
@@ -3620,7 +3284,7 @@ function bindEvents() {
   $('routeCampusSelect').addEventListener('change', (e) => switchPlanCampus(e.target.value));
   $('routeUndo').addEventListener('click', undoRoutePoint);
   $('routeClear').addEventListener('click', clearRoutePoints);
-  $('routeAuto').addEventListener('click', autoConnectCheckpoints);
+  $('routeShapeBtn').addEventListener('click', toggleShapePanel);
   $('routeRefresh').addEventListener('click', () => fetchPlanCheckpoints(true));
   $('routeDone').addEventListener('click', finishPlan);
   $('routePen').addEventListener('click', () => {
@@ -3638,6 +3302,7 @@ function bindEvents() {
   $('routeExport').addEventListener('click', exportPlanRoute);
   $('routeImport').addEventListener('click', importPlanRoute);
   bindRouteDrawing();
+  bindShapeTools();
 
   $('btnRecord').addEventListener('click', toggleRecord);
   $('btnFillRecorded').addEventListener('click', fillRecorded);
