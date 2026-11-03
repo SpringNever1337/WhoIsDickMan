@@ -520,7 +520,7 @@
     </div>
 
     <footer>
-      <div class="line">DickOnTop · 网页版 v16 · 手动绘制 / 可调图形 · 仅用于个人学习</div>
+      <div class="line">DickOnTop · 网页版 v17 · 手动绘制 / 可调图形 · 仅用于个人学习</div>
       <div class="line">总访问流量（APP + 网页）：<br>
         <img src="https://hits.sh/github.com/SpringNever1337/WhoIsDickMan/hits.svg?style=flat-square&amp;label=%E6%80%BB%E8%AE%BF%E9%97%AE%E6%B5%81%E9%87%8F" alt="总访问流量" style="height:20px;vertical-align:middle;margin-top:6px;" loading="lazy" referrerpolicy="no-referrer">
       </div>
@@ -580,7 +580,7 @@
       </div>
       <div class="route-shape-size">
         <span>大小</span>
-        <input id="routeShapeSize" type="range" min="100" max="800" step="25" value="300" aria-label="图形大小">
+        <input id="routeShapeSize" type="range" min="0.1" max="2000" step="0.1" value="300" aria-label="图形大小">
         <b id="routeShapeSizeVal">300m</b>
       </div>
     </div>
@@ -1963,9 +1963,25 @@ const SHAPE_LABELS = {
   circle: '圆形', rect: '矩形', oval: '椭圆', triangle: '三角形', star: '五角星'
 };
 
+const SHAPE_MIN_SIZE = 0.1;
+
 function shapeMeters() {
   const el = $('routeShapeSize');
-  return el ? (Number(el.value) || 300) : 300;
+  if (!el) return 300;
+  const v = Number(el.value);
+  return Number.isFinite(v) && v > 0 ? Math.max(SHAPE_MIN_SIZE, v) : 300;
+}
+
+function fmtShapeSize(size) {
+  const n = Number(size) || 0;
+  if (n < 1) return (Math.round(n * 100) / 100).toFixed(2) + 'm';
+  return n < 10 ? (Math.round(n * 10) / 10).toFixed(1) + 'm' : Math.round(n) + 'm';
+}
+
+function fmtShapeLength(meters) {
+  const m = Number(meters) || 0;
+  if (m < 10) return (Math.round(m * 100) / 100).toFixed(2) + ' m';
+  return m < 1000 ? Math.round(m) + ' m' : (m / 1000).toFixed(2) + ' km';
 }
 
 function toggleShapePanel() {
@@ -2084,7 +2100,7 @@ function appendShapeRoute(kind, lat, lng, size) {
   renderRoute();
   updateShapeEditor();
   const outside = shape.some((p) => !mapPointInBounds(p));
-  toast('已添加' + SHAPE_LABELS[kind] + ' ' + fmtKm(routeMeters(shape)) + ' km'
+  toast('已添加' + SHAPE_LABELS[kind] + ' ' + fmtShapeLength(routeMeters(shape))
     + (outside ? '（部分超出地图）' : '')
     + '；拖动轮廓移动，绿点缩放，蓝点旋转');
   return true;
@@ -2145,9 +2161,13 @@ function renderPendingShape() {
     state.plan.strokes.push(edit.strokeStart);
   }
   const sizeEl = $('routeShapeSize');
-  if (sizeEl) sizeEl.value = String(Math.round(edit.size));
+  if (sizeEl) {
+    const need = Math.ceil(edit.size * 10) / 10;
+    if (!Number(sizeEl.max) || Number(sizeEl.max) < need) sizeEl.max = String(need);
+    sizeEl.value = String(Math.round(edit.size * 10) / 10);
+  }
   const sizeVal = $('routeShapeSizeVal');
-  if (sizeVal) sizeVal.textContent = Math.round(edit.size) + 'm';
+  if (sizeVal) sizeVal.textContent = fmtShapeSize(edit.size);
   renderRoute();
   updateShapeEditor();
 }
@@ -2195,13 +2215,13 @@ function updateShapeEditor() {
   if (label) {
     label.setAttribute('x', (sizePoint.x + 10).toFixed(1));
     label.setAttribute('y', (sizePoint.y - 9).toFixed(1));
-    label.textContent = Math.round(edit.size) + 'm';
+    label.textContent = fmtShapeSize(edit.size);
   }
   const deg = ((Math.round(edit.rot * 180 / Math.PI) % 360) + 360) % 360;
   const info = $('shapeEditInfo');
   if (info) {
     info.innerHTML = '<b>' + SHAPE_LABELS[edit.kind] + '</b> · '
-      + Math.round(edit.size) + 'm · ' + deg + '°';
+      + fmtShapeSize(edit.size) + ' · ' + deg + '°';
   }
 }
 
@@ -2247,9 +2267,8 @@ function moveShapeEditDrag(ev) {
     edit.lng = ll.lng;
   } else if (drag.mode === 'resize') {
     const ll = map.containerPointToLatLng([x, y]);
-    let size = Math.abs(ll.lng - edit.lng) * metersPerLng(edit.lat);
-    size = clamp(Math.round(size / 5) * 5, 100, 800);
-    edit.size = size;
+    const size = Math.abs(ll.lng - edit.lng) * metersPerLng(edit.lat);
+    edit.size = Math.max(SHAPE_MIN_SIZE, Math.round(size * 10) / 10);
   } else if (drag.mode === 'rotate') {
     const angle = Math.atan2(drag.centerY - y, x - drag.centerX);
     edit.rot = normRot(drag.startRot + angle - drag.startAngle);
@@ -2385,9 +2404,9 @@ function bindShapeTools() {
   if (size) {
     const syncSize = () => {
       const value = Number(size.value) || 300;
-      if (sizeVal) sizeVal.textContent = value + 'm';
+      if (sizeVal) sizeVal.textContent = fmtShapeSize(value);
       if (state.plan.shapeEdit) {
-        state.plan.shapeEdit.size = clamp(value, 100, 800);
+        state.plan.shapeEdit.size = Math.max(SHAPE_MIN_SIZE, value);
         renderPendingShape();
       }
     };
