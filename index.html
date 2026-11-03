@@ -302,6 +302,46 @@
     opacity: 0.9; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.7));
   }
   .shape-ghost svg { width: 56px; height: 56px; fill: none; stroke: currentColor; stroke-width: 2; }
+  .shape-editor {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    z-index: 20; pointer-events: none; touch-action: none; overflow: visible;
+  }
+  .shape-edit-poly {
+    fill: rgba(255,213,79,0.10); stroke: #ffd54f; stroke-width: 2;
+    stroke-dasharray: 7 5; pointer-events: auto; cursor: move;
+    vector-effect: non-scaling-stroke;
+  }
+  .shape-edit-line {
+    stroke: rgba(255,213,79,0.65); stroke-width: 1.5;
+    pointer-events: none; vector-effect: non-scaling-stroke;
+  }
+  .shape-edit-handle { pointer-events: auto; vector-effect: non-scaling-stroke; }
+  .shape-edit-move { fill: #ffd54f; stroke: #06110c; stroke-width: 2; cursor: move; }
+  .shape-edit-size { fill: #39ff88; stroke: #06110c; stroke-width: 2; cursor: ew-resize; }
+  .shape-edit-rot { fill: #4fc3f7; stroke: #06110c; stroke-width: 2; cursor: grab; }
+  .shape-edit-label {
+    fill: #ffd54f; font-size: 11px; font-weight: 700;
+    text-anchor: middle; pointer-events: none;
+  }
+  .shape-edit-bar {
+    position: absolute; left: 50%; top: 46px; transform: translateX(-50%);
+    z-index: 960; display: flex; align-items: center; gap: 7px;
+    max-width: calc(100% - 110px); padding: 6px 8px 6px 11px;
+    border-radius: 999px; background: rgba(5,11,14,0.94);
+    border: 1px solid rgba(255,213,79,0.55);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.55); font-size: 11px;
+    color: #ffe7a3;
+  }
+  .shape-edit-bar span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .shape-edit-bar b { color: #fff; font-weight: 700; }
+  .shape-edit-bar button {
+    flex: 0 0 auto; padding: 5px 9px; border-radius: 999px;
+    font-size: 11px; border: 1px solid rgba(255,255,255,0.22);
+    background: rgba(255,255,255,0.07); color: #d6f0e0;
+  }
+  .shape-edit-bar button.ok {
+    color: #06110c; background: var(--neon); border-color: var(--neon);
+  }
 
   .leaflet-container { font-family: inherit; font-size: 12px; background: #0a1a14; }
   .leaflet-control-attribution { background: rgba(5,11,14,0.75) !important; color: rgba(214,240,224,0.62) !important; }
@@ -466,7 +506,7 @@
         <summary>使用方法 / 常见问题</summary>
         <ol>
           <li>顶部选择校区，点“打开校园地图 · 绘制路线”加载对应校区地图；地图顶部也可以随时切换西/东校区；</li>
-          <li>地图打开后默认就是画笔模式，顶部会显示“画笔已开启”，按住地图拖动即可画线；右下角绿色“画笔：开”按钮可切换画笔/移动地图，双指可缩放；路线必须经过所有红色打卡点；点“图形”展开工具栏，按住圆形、矩形、椭圆、三角形或五角星拖到地图上，松开后图形轮廓就成为路线，可连续拖多个拼出 3–6 公里；“橡皮：开”后点哪一条线就整条删除；</li>
+          <li>地图打开后默认就是画笔模式，顶部会显示“画笔已开启”，按住地图拖动即可画线；右下角绿色“画笔：开”按钮可切换画笔/移动地图，双指可缩放；路线必须经过所有红色打卡点；点“图形”展开工具栏，按住圆形、矩形、椭圆、三角形或五角星拖到地图上，松开后可以直接拖动轮廓移动位置、拖右侧绿点缩放、拖上方蓝点旋转，点“完成”确定后轮廓就成为路线，可连续拖多个拼出 3–6 公里；“橡皮：开”后点哪一条线就整条删除；</li>
           <li>画好的路线可以点“收藏路线”保存（每个校区最多 3 条），下次从“已存路线”一键载入；点“导出”把路线复制成 JSON，点“导入”可粘贴 APK 或网页版导出的路线；</li>
           <li>点“完成”后公里数按绘制路线长度自动填入并锁定；没有打卡点时直接手绘即可；</li>
           <li>用时、配速任意改一个，另一个会自动换算；公里数由路线决定；</li>
@@ -480,7 +520,7 @@
     </div>
 
     <footer>
-      <div class="line">DickOnTop · 网页版 v15 · 手动绘制 / 图形工具 · 仅用于个人学习</div>
+      <div class="line">DickOnTop · 网页版 v16 · 手动绘制 / 可调图形 · 仅用于个人学习</div>
       <div class="line">总访问流量（APP + 网页）：<br>
         <img src="https://hits.sh/github.com/SpringNever1337/WhoIsDickMan/hits.svg?style=flat-square&amp;label=%E6%80%BB%E8%AE%BF%E9%97%AE%E6%B5%81%E9%87%8F" alt="总访问流量" style="height:20px;vertical-align:middle;margin-top:6px;" loading="lazy" referrerpolicy="no-referrer">
       </div>
@@ -518,7 +558,7 @@
     <button id="routePen" class="on" type="button">画笔：开</button>
     <div id="routeShapePanel" class="route-shape-panel hidden">
       <div class="route-shape-head">
-        <span>图形工具 · 按住图形拖到地图上，松开即成为路线</span>
+        <span>图形工具 · 拖到地图后，可拖动轮廓/圆点调整位置、大小和方向</span>
         <button id="routeShapeClose" type="button">收起</button>
       </div>
       <div class="route-shape-items">
@@ -545,6 +585,19 @@
       </div>
     </div>
     <div id="shapeGhost" class="shape-ghost hidden"></div>
+    <div id="shapeEditBar" class="shape-edit-bar hidden">
+      <span id="shapeEditInfo">调整图形</span>
+      <button id="shapeEditDone" class="ok" type="button">完成</button>
+      <button id="shapeEditCancel" type="button">取消</button>
+    </div>
+    <svg id="shapeEditor" class="shape-editor hidden" aria-hidden="true">
+      <polygon id="shapeEditPoly" class="shape-edit-poly"></polygon>
+      <line id="shapeEditRotLine" class="shape-edit-line"></line>
+      <circle id="shapeEditCenter" class="shape-edit-handle shape-edit-move" r="6"></circle>
+      <circle id="shapeEditSize" class="shape-edit-handle shape-edit-size" r="8"></circle>
+      <circle id="shapeEditRot" class="shape-edit-handle shape-edit-rot" r="9"></circle>
+      <text id="shapeEditSizeText" class="shape-edit-label"></text>
+    </svg>
   </div>
   <div class="route-panel">
     <div class="route-stats">
@@ -655,6 +708,8 @@ const state = {
     cpLayer: [],
     shapeDrag: null,
     shapePreviewLayer: null,
+    shapeEdit: null,
+    shapeEditDrag: null,
     loading: false
   }
 };
@@ -1337,6 +1392,7 @@ function initRouteMap(campus) {
   state.plan.pointers.clear();
   state.plan.drawing = false;
   state.plan.strokeStarted = false;
+  map.on('move zoom viewreset resize', updateShapeEditor);
   setPen(state.plan.pen);
 }
 
@@ -1450,6 +1506,7 @@ function persistRoutes(campus, list) {
 }
 
 function applyPlanRoute(points) {
+  clearShapeEditState();
   state.plan.route = points.map((p) => ({ lat: p.lat, lng: p.lng }));
   state.plan.strokes = points.length ? [0] : [];
   state.plan.drawing = false;
@@ -1694,6 +1751,11 @@ function bindRouteDrawing() {
   if (!box) return;
   box.addEventListener('pointerdown', (e) => {
     if (!state.plan.active || !state.plan.map) return;
+    if (state.plan.shapeEdit) {
+      finishShapeEdit(true);
+      e.preventDefault();
+      return;
+    }
     if (e.pointerType === 'touch') return; // 触摸统一走原生 touch 事件，避免与 Leaflet 双指缩放冲突
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     if (e.target && e.target.closest && e.target.closest('.leaflet-control')) return;
@@ -1749,6 +1811,11 @@ function bindRouteDrawing() {
   let touchId = null;
   box.addEventListener('touchstart', (e) => {
     if (!state.plan.active || !state.plan.map) return;
+    if (state.plan.shapeEdit) {
+      finishShapeEdit(true);
+      e.preventDefault();
+      return;
+    }
     if (e.target && e.target.closest && e.target.closest('.leaflet-control')) return;
     if (e.touches.length > 1) {
       if (state.plan.drawing) endPlanStroke();
@@ -1871,7 +1938,7 @@ function renderRoute() {
   $('routeTargetStat').textContent = target;
 
   if (!route.length) {
-    routeHint('按住地图拖动即可手绘路线；红点是必须经过的打卡点，圆圈为 20 米判定范围。也可以点「图形」展开工具栏，把图形拖到地图上充当路线。', '');
+    routeHint('按住地图拖动即可手绘路线；红点是必须经过的打卡点，圆圈为 20 米判定范围。也可以点「图形」拖一个图形到地图上，再拖动轮廓移动、绿点缩放、蓝点旋转，最后点「完成」。', '');
   } else if (required.length && covered < required.length) {
     routeHint('还有 ' + (required.length - covered) + ' 个打卡点未经过，请把路线画到红色圆点附近。', 'warn');
   } else if (meters < l.min) {
@@ -1906,7 +1973,7 @@ function toggleShapePanel() {
   if (!panel) return;
   const show = panel.classList.contains('hidden');
   panel.classList.toggle('hidden', !show);
-  if (show) toast('按住图形拖到地图上，松开即生成路线');
+  if (show) toast('按住图形拖到地图上，松开后可拖动轮廓移动、绿点缩放、蓝点旋转');
 }
 
 function shapeSvgInner(kind) {
@@ -1917,11 +1984,29 @@ function shapeSvgInner(kind) {
   return '<polygon points="20,5 24.7,15.4 36,16.2 27.4,23.4 30.1,34.2 20,28.3 9.9,34.2 12.6,23.4 4,16.2 15.3,15.4"></polygon>';
 }
 
-function shapePolyline(kind, lat, lng, size) {
+function metersPerLng(lat) {
+  return 111320 * Math.max(0.05, Math.cos(lat * Math.PI / 180));
+}
+
+function normRot(rot) {
+  let r = Number(rot) || 0;
+  while (r > Math.PI) r -= Math.PI * 2;
+  while (r < -Math.PI) r += Math.PI * 2;
+  return r;
+}
+
+function shapePolyline(kind, lat, lng, size, rot) {
   const latScale = 111320;
-  const lngScale = 111320 * Math.max(0.05, Math.cos(lat * Math.PI / 180));
+  const lngScale = metersPerLng(lat);
+  const angle = Number(rot) || 0;
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
   const out = [];
-  const add = (x, y) => out.push({ lat: lat + y / latScale, lng: lng + x / lngScale });
+  const add = (x, y) => {
+    const xr = x * cos - y * sin;
+    const yr = x * sin + y * cos;
+    out.push({ lat: lat + yr / latScale, lng: lng + xr / lngScale });
+  };
   if (kind === 'rect') {
     const w = size;
     const h = size * 0.65;
@@ -1964,32 +2049,237 @@ function rotateShapeToNearest(points, last) {
   return out;
 }
 
-function appendShapeRoute(kind, lat, lng, size) {
-  if (!SHAPE_LABELS[kind]) return false;
-  const last = state.plan.route.length
-    ? state.plan.route[state.plan.route.length - 1] : null;
-  const shape = rotateShapeToNearest(shapePolyline(kind, lat, lng, size), last);
-  const start = state.plan.route.length;
-  if (last) {
-    const d = haversine(last, shape[0]);
+function appendShapeRun(shape, prev) {
+  if (prev) {
+    const d = haversine(prev, shape[0]);
     if (d >= 0.3) {
       const steps = Math.max(1, Math.min(600, Math.ceil(d / 10)));
       for (let i = 0; i <= steps; i += 1) {
         const t = i / steps;
         state.plan.route.push({
-          lat: last.lat + (shape[0].lat - last.lat) * t,
-          lng: last.lng + (shape[0].lng - last.lng) * t
+          lat: prev.lat + (shape[0].lat - prev.lat) * t,
+          lng: prev.lng + (shape[0].lng - prev.lng) * t
         });
       }
     }
   }
   shape.forEach((p) => state.plan.route.push({ lat: p.lat, lng: p.lng }));
+}
+
+function appendShapeRoute(kind, lat, lng, size) {
+  if (!SHAPE_LABELS[kind]) return false;
+  if (state.plan.shapeEdit) finishShapeEdit(true);
+  const last = state.plan.route.length
+    ? state.plan.route[state.plan.route.length - 1] : null;
+  const shape = rotateShapeToNearest(shapePolyline(kind, lat, lng, size, 0), last);
+  const start = state.plan.route.length;
+  appendShapeRun(shape, last);
   state.plan.strokes.push(start);
+  state.plan.shapeEdit = {
+    kind: kind, lat: lat, lng: lng, size: size, rot: 0, strokeStart: start
+  };
+  state.plan.shapeEditDrag = null;
+  const panel = $('routeShapePanel');
+  if (panel) panel.classList.add('hidden');
   renderRoute();
+  updateShapeEditor();
   const outside = shape.some((p) => !mapPointInBounds(p));
   toast('已添加' + SHAPE_LABELS[kind] + ' ' + fmtKm(routeMeters(shape)) + ' km'
-    + (outside ? '（部分超出地图）' : ''));
+    + (outside ? '（部分超出地图）' : '')
+    + '；拖动轮廓移动，绿点缩放，蓝点旋转');
   return true;
+}
+
+function hideShapeEditor() {
+  const editor = $('shapeEditor');
+  if (editor) editor.classList.add('hidden');
+  const bar = $('shapeEditBar');
+  if (bar) bar.classList.add('hidden');
+}
+
+function clearShapeEditState() {
+  state.plan.shapeEdit = null;
+  state.plan.shapeEditDrag = null;
+  hideShapeEditor();
+}
+
+function finishShapeEdit(silent) {
+  if (!state.plan.shapeEdit) return;
+  state.plan.shapeEdit = null;
+  state.plan.shapeEditDrag = null;
+  hideShapeEditor();
+  renderRoute();
+  if (!silent) toast('图形已确定，可继续画线或拖入下一个图形');
+}
+
+function cancelShapeEdit() {
+  const e = state.plan.shapeEdit;
+  if (!e) return;
+  state.plan.route.length = Math.max(0, Math.min(e.strokeStart, state.plan.route.length));
+  if (state.plan.strokes.length
+      && state.plan.strokes[state.plan.strokes.length - 1] === e.strokeStart) {
+    state.plan.strokes.pop();
+  }
+  state.plan.shapeEdit = null;
+  state.plan.shapeEditDrag = null;
+  hideShapeEditor();
+  renderRoute();
+  toast('已取消这个图形');
+}
+
+function pendingShapeRoutePoints(edit) {
+  const prev = edit.strokeStart > 0 ? state.plan.route[edit.strokeStart - 1] : null;
+  return rotateShapeToNearest(
+    shapePolyline(edit.kind, edit.lat, edit.lng, edit.size, edit.rot), prev);
+}
+
+function renderPendingShape() {
+  const edit = state.plan.shapeEdit;
+  if (!edit || !state.plan.map) return;
+  state.plan.route.length = Math.max(0, Math.min(edit.strokeStart, state.plan.route.length));
+  const prev = edit.strokeStart > 0 ? state.plan.route[edit.strokeStart - 1] : null;
+  const shape = pendingShapeRoutePoints(edit);
+  appendShapeRun(shape, prev);
+  if (!state.plan.strokes.length
+      || state.plan.strokes[state.plan.strokes.length - 1] !== edit.strokeStart) {
+    state.plan.strokes.push(edit.strokeStart);
+  }
+  const sizeEl = $('routeShapeSize');
+  if (sizeEl) sizeEl.value = String(Math.round(edit.size));
+  const sizeVal = $('routeShapeSizeVal');
+  if (sizeVal) sizeVal.textContent = Math.round(edit.size) + 'm';
+  renderRoute();
+  updateShapeEditor();
+}
+
+function updateShapeEditor() {
+  const edit = state.plan.shapeEdit;
+  const map = state.plan.map;
+  const editor = $('shapeEditor');
+  const bar = $('shapeEditBar');
+  if (!edit || !map || !state.plan.active) {
+    if (editor) editor.classList.add('hidden');
+    if (bar) bar.classList.add('hidden');
+    return;
+  }
+  if (editor) editor.classList.remove('hidden');
+  if (bar) bar.classList.remove('hidden');
+
+  const ring = shapePolyline(edit.kind, edit.lat, edit.lng, edit.size, edit.rot);
+  ring.pop();
+  const pts = ring.map((p) => map.latLngToContainerPoint([p.lat, p.lng]));
+  const poly = $('shapeEditPoly');
+  if (poly) poly.setAttribute('points', pts.map((p) => p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' '));
+  const center = map.latLngToContainerPoint([edit.lat, edit.lng]);
+  const sizePoint = map.latLngToContainerPoint([
+    edit.lat, edit.lng + edit.size / metersPerLng(edit.lat)
+  ]);
+  const rotPoint = { x: center.x, y: Math.max(22, center.y - 64) };
+  const setCircle = (id, p) => {
+    const el = $(id);
+    if (!el) return;
+    el.setAttribute('cx', p.x.toFixed(1));
+    el.setAttribute('cy', p.y.toFixed(1));
+  };
+  setCircle('shapeEditCenter', center);
+  setCircle('shapeEditSize', sizePoint);
+  setCircle('shapeEditRot', rotPoint);
+  const line = $('shapeEditRotLine');
+  if (line) {
+    line.setAttribute('x1', center.x.toFixed(1));
+    line.setAttribute('y1', center.y.toFixed(1));
+    line.setAttribute('x2', rotPoint.x.toFixed(1));
+    line.setAttribute('y2', rotPoint.y.toFixed(1));
+  }
+  const label = $('shapeEditSizeText');
+  if (label) {
+    label.setAttribute('x', (sizePoint.x + 10).toFixed(1));
+    label.setAttribute('y', (sizePoint.y - 9).toFixed(1));
+    label.textContent = Math.round(edit.size) + 'm';
+  }
+  const deg = ((Math.round(edit.rot * 180 / Math.PI) % 360) + 360) % 360;
+  const info = $('shapeEditInfo');
+  if (info) {
+    info.innerHTML = '<b>' + SHAPE_LABELS[edit.kind] + '</b> · '
+      + Math.round(edit.size) + 'm · ' + deg + '°';
+  }
+}
+
+function startShapeEditDrag(ev, mode) {
+  const edit = state.plan.shapeEdit;
+  const map = state.plan.map;
+  if (!edit || !map) return;
+  if (ev.pointerType === 'mouse' && ev.button !== 0) return;
+  ev.preventDefault();
+  ev.stopPropagation();
+  const center = map.latLngToContainerPoint([edit.lat, edit.lng]);
+  state.plan.shapeEditDrag = {
+    mode: mode,
+    pointerId: ev.pointerId,
+    startX: ev.clientX,
+    startY: ev.clientY,
+    centerX: center.x,
+    centerY: center.y,
+    startLat: edit.lat,
+    startLng: edit.lng,
+    startSize: edit.size,
+    startRot: edit.rot,
+    startAngle: Math.atan2(center.y - ev.clientY, ev.clientX - center.x)
+  };
+  try { ev.currentTarget.setPointerCapture(ev.pointerId); } catch (err) { /* ignore */ }
+}
+
+function moveShapeEditDrag(ev) {
+  const edit = state.plan.shapeEdit;
+  const drag = state.plan.shapeEditDrag;
+  const map = state.plan.map;
+  const box = $('routeMap');
+  if (!edit || !drag || !map || !box || ev.pointerId !== drag.pointerId) return;
+  const rect = box.getBoundingClientRect();
+  const x = ev.clientX - rect.left;
+  const y = ev.clientY - rect.top;
+  if (drag.mode === 'move') {
+    const ll = map.containerPointToLatLng([
+      drag.centerX + (ev.clientX - drag.startX),
+      drag.centerY + (ev.clientY - drag.startY)
+    ]);
+    edit.lat = ll.lat;
+    edit.lng = ll.lng;
+  } else if (drag.mode === 'resize') {
+    const ll = map.containerPointToLatLng([x, y]);
+    let size = Math.abs(ll.lng - edit.lng) * metersPerLng(edit.lat);
+    size = clamp(Math.round(size / 5) * 5, 100, 800);
+    edit.size = size;
+  } else if (drag.mode === 'rotate') {
+    const angle = Math.atan2(drag.centerY - y, x - drag.centerX);
+    edit.rot = normRot(drag.startRot + angle - drag.startAngle);
+  }
+  ev.preventDefault();
+  renderPendingShape();
+}
+
+function endShapeEditDrag(ev) {
+  const drag = state.plan.shapeEditDrag;
+  if (!drag || (ev && ev.pointerId !== drag.pointerId)) return;
+  state.plan.shapeEditDrag = null;
+}
+
+function bindShapeEditorEvents() {
+  const bind = (id, mode) => {
+    const el = $(id);
+    if (el) el.addEventListener('pointerdown', (ev) => startShapeEditDrag(ev, mode));
+  };
+  bind('shapeEditPoly', 'move');
+  bind('shapeEditCenter', 'move');
+  bind('shapeEditSize', 'resize');
+  bind('shapeEditRot', 'rotate');
+  const done = $('shapeEditDone');
+  if (done) done.addEventListener('click', () => finishShapeEdit(false));
+  const cancel = $('shapeEditCancel');
+  if (cancel) cancel.addEventListener('click', cancelShapeEdit);
+  window.addEventListener('pointermove', moveShapeEditDrag, { passive: false });
+  window.addEventListener('pointerup', endShapeEditDrag);
+  window.addEventListener('pointercancel', endShapeEditDrag);
 }
 
 function shapeGhostMove(x, y) {
@@ -2094,7 +2384,12 @@ function bindShapeTools() {
   const sizeVal = $('routeShapeSizeVal');
   if (size) {
     const syncSize = () => {
-      if (sizeVal) sizeVal.textContent = (Number(size.value) || 300) + 'm';
+      const value = Number(size.value) || 300;
+      if (sizeVal) sizeVal.textContent = value + 'm';
+      if (state.plan.shapeEdit) {
+        state.plan.shapeEdit.size = clamp(value, 100, 800);
+        renderPendingShape();
+      }
     };
     size.addEventListener('input', syncSize);
     syncSize();
@@ -2107,9 +2402,14 @@ function bindShapeTools() {
   window.addEventListener('pointermove', moveShapeDrag, { passive: false });
   window.addEventListener('pointerup', endShapeDrag);
   window.addEventListener('pointercancel', cancelShapeDrag);
+  bindShapeEditorEvents();
 }
 
 function undoRoutePoint() {
+  if (state.plan.shapeEdit) {
+    cancelShapeEdit();
+    return;
+  }
   if (!state.plan.route.length) return;
   if (state.plan.strokes.length) {
     const start = state.plan.strokes.pop();
@@ -2121,6 +2421,7 @@ function undoRoutePoint() {
 }
 
 function clearRoutePoints() {
+  clearShapeEditState();
   state.plan.route = [];
   state.plan.strokes = [];
   state.plan.drawing = false;
@@ -2169,6 +2470,7 @@ function densifyRoute(route, step) {
 
 function finishPlan() {
   if (!state.plan.map) return;
+  if (state.plan.shapeEdit) finishShapeEdit(true);
   if (state.plan.route.length < 2) {
     routeHint('请先按住地图拖动，画出至少一段路线。', 'err');
     return;
@@ -2232,6 +2534,7 @@ function updatePlanStatus() {
 function closeRoutePlanner() {
   state.plan.active = false;
   state.plan.shapeDrag = null;
+  clearShapeEditState();
   clearShapePreview();
   const panel = $('routeShapePanel');
   if (panel) panel.classList.add('hidden');
@@ -2264,6 +2567,7 @@ async function fetchPlanCheckpoints(keepRoute) {
       isPass: !!p.isPass
     })).filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
     if (!keepRoute) {
+      clearShapeEditState();
       state.plan.route = [];
       state.plan.strokes = [];
     }
@@ -2280,6 +2584,7 @@ async function fetchPlanCheckpoints(keepRoute) {
   } catch (e) {
     state.plan.checkpoints = [];
     if (!keepRoute) {
+      clearShapeEditState();
       state.plan.route = [];
       state.plan.strokes = [];
     }
@@ -2303,6 +2608,7 @@ async function openRoutePlanner() {
   state.plan.pen = true;
   state.plan.eraser = false;
   state.plan.checkpoints = [];
+  clearShapeEditState();
   state.plan.route = [];
   state.plan.strokes = [];
   state.plan.drawing = false;
@@ -2360,6 +2666,7 @@ async function switchPlanCampus(next) {
   clearPlannedRoute(false);
   clearPlanCache();
   state.plan.checkpoints = [];
+  clearShapeEditState();
   state.plan.route = [];
   state.plan.strokes = [];
   state.plan.drawing = false;
